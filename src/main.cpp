@@ -1,18 +1,22 @@
-#include "info.h"
-#include <dpp/colors.h>
-#include <dpp/dpp.h>
-#include <dpp/message.h>
+#include "../include/Logos/Logos.h"
+#include <sstream>
 
-int main() {
-  dpp::cluster bot(BOT_TOKEN);
+static const long YDS_GUILD_ID = 920188312591933460;
+using json = nlohmann::json;
+
+int main(int argc, char const *argv[]) {
+  json configDocument;
+  std::ifstream configFile("../config.json");
+  configFile >> configDocument;
+  dpp::cluster bot(configDocument["token"]);
 
   bot.on_log(dpp::utility::cout_logger());
 
-  /* The event is fired when someone issues your commands */
   bot.on_slashcommand([&bot](const dpp::slashcommand_t &event) {
-    /* Check which command they ran */
+    if (event.command.get_command_name() == "ping") {
+      event.reply("Pong!");
+    }
     if (event.command.get_command_name() == "whoami") {
-      /* Create an embed */
       dpp::embed embed =
           dpp::embed()
               .set_color(dpp::colors::pastel_light_blue)
@@ -37,6 +41,7 @@ int main() {
       event.reply(msg);
     }
   });
+
   bot.on_ready([&bot](const dpp::ready_t &event) {
     if (dpp::run_once<struct clear_bot_commands>()) {
       bot.global_bulk_command_delete();
@@ -44,11 +49,12 @@ int main() {
     }
     if (dpp::run_once<struct register_bot_commands>()) {
       dpp::slashcommand whoami("whoami", "Information about logos.", bot.me.id);
-
-      bot.global_bulk_command_create({whoami});
-      bot.guild_bulk_command_create({whoami}, YDS_GUILD_ID);
+      dpp::slashcommand ping("ping", "Wanna play?", bot.me.id);
+      bot.global_bulk_command_create({whoami, ping});
+      bot.guild_bulk_command_create({whoami, ping}, YDS_GUILD_ID);
     }
   });
 
   bot.start(dpp::st_wait);
+  return 0;
 }

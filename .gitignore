@@ -1,2 +1,8 @@
-/build
-/src/info.h
+build/
+out/
+.vs/
+.vscode/
+.idea/
+tmp/
+config.json
+
