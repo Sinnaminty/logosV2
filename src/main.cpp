@@ -60,7 +60,6 @@ int main(int argc, char const *argv[]) {
                                      << std::endl;
                            return;
                          }
-
                          // std::get<dpp::message_map>(callback.value) would
                          // give the same result
                          auto messages = callback.get<dpp::message_map>();
@@ -84,11 +83,17 @@ int main(int argc, char const *argv[]) {
       } else {
         user = std::get<dpp::snowflake>(event.get_parameter("user"));
       }
-      dpp::embed embed;
       // attach the user's name and profile picture to the embed
+      dpp::embed embed;
+      dpp::user u = event.command.bot->user_get_sync(user);
 
+      // Attach the user's name and profile picture to the embed
+      embed.set_title(u.username + "'s Profile Picture")
+          .set_image(u.get_avatar_url())
+          .set_color(dpp::colors::blue);
       dpp::message msg(event.command.channel_id, embed);
       event.reply(msg);
+
     } else if (event.command.get_command_name() == "pm") {
       dpp::snowflake user;
 
@@ -168,7 +173,7 @@ int main(int argc, char const *argv[]) {
       dpp::slashcommand whoami("whoami", "Information about me.", bot.me.id);
       dpp::slashcommand ping("ping", "Wanna play?", bot.me.id);
       dpp::slashcommand pm("pm", "Recieve a message from me.", bot.me.id);
-      dpp::slashcommand file("file", "Request an image from a URL.", bot.me.id);
+      dpp::slashcommand pfp("pfp", "Get someone's profile picture.", bot.me.id);
       dpp::slashcommand msgsGet("msgs-get", "Get Messages", bot.me.id);
 
       constexpr int64_t min_val{1};
@@ -180,8 +185,11 @@ int main(int argc, char const *argv[]) {
               .set_min_value(min_val)
               .set_max_value(max_val));
 
+      pfp.add_option(dpp::command_option(
+          std::string, "user",
+          "The user of the profile picture I should grab."));
       // bot.global_bulk_command_create({whoami, ping, pm, file});
-      bot.guild_bulk_command_create({whoami, ping, pm, file, msgsGet},
+      bot.guild_bulk_command_create({whoami, ping, pm, pfp, msgsGet},
                                     YDS_GUILD_ID);
     }
   });
