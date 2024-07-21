@@ -10,8 +10,9 @@ int main(int argc, char const *argv[]) {
   json configDocument;
   std::ifstream configFile("../config.json");
   configFile >> configDocument;
-  dpp::cluster bot(configDocument["token"],
-                   dpp::i_default_intents | dpp::i_guild_members);
+  dpp::cluster bot(configDocument["token"], dpp::i_default_intents |
+                                                dpp::i_guild_members |
+                                                dpp::i_message_content);
   bot.on_log(dpp::utility::cout_logger());
 
   std::random_device dev;
@@ -20,14 +21,15 @@ int main(int argc, char const *argv[]) {
 
   /* The event is fired when the bot detects a message in any server and any
    * channel it has access to. */
-  bot.on_message_create([&bot, &rng](const dpp::message_create_t &event) {
-    /* 1/500 chance. */
-    if (event.msg.content.find("hoe") != std::string::npos) {
-      if (rand(rng) % 500 == 0) {
-        event.reply("hoes mad?", true);
-      }
-    }
-  });
+  bot.on_message_create(
+      [&bot, &rng, &rand](const dpp::message_create_t &event) {
+        /* 1/500 chance. */
+        if (event.msg.content.find("hoe") != std::string::npos) {
+          if (rand(rng) % 500 == 0) {
+            event.reply("hoes mad?", true);
+          }
+        }
+      });
 
   bot.on_message_reaction_remove(
       [&bot](const dpp::message_reaction_remove_t &event) {
@@ -72,23 +74,21 @@ int main(int argc, char const *argv[]) {
                          event.reply(contents);
                        });
 
-    } else if (event.command.get_command_name() == "file") {
-      // Request the image from the URL specified and capture the event in a
-      // lambda.
-      std::string url = std::get<std::string>(event.get_parameter("url"));
-      bot.request(
-          url, dpp::m_get,
-          [event](const dpp::http_request_completion_t &httpRequestCompletion) {
-            dpp::message msg(event.command.channel_id,
-                             "This is my new attachment:");
-            // Attach the image to the message, only on success (Code 200).
-            if (httpRequestCompletion.status == 200) {
-              msg.add_file("logo.png", httpRequestCompletion.body);
-            }
-            // Send the message, with our attachment.
-            event.reply(msg);
-          });
+    } else if (event.command.get_command_name() == "pfp") {
+      dpp::snowflake user;
 
+      // If there was no specified user, we set the "user" variable to the
+      // command author.
+      if (event.get_parameter("user").index() == 0) {
+        user = event.command.get_issuing_user().id;
+      } else {
+        user = std::get<dpp::snowflake>(event.get_parameter("user"));
+      }
+      dpp::embed embed;
+      // attach the user's name and profile picture to the embed
+
+      dpp::message msg(event.command.channel_id, embed);
+      event.reply(msg);
     } else if (event.command.get_command_name() == "pm") {
       dpp::snowflake user;
 
