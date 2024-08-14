@@ -24,15 +24,15 @@ void SlashCommandListener::on_slashcommmand(const dpp::slashcommand_t &event) {
             .set_title("Logos")
             .set_url("https://fizzysylv.xyz/")
             .set_author("Fizzy", "https://fizzysylv.xyz/",
-                        "https://fizzysylv.xyz/images/fizzysylv.png")
+                        "https://genrandom.com/cats")
             .set_description("Repitition Legitimizes.")
-            .set_thumbnail("https://fizzysylv.xyz/images/fizzysylv.png")
+            .set_thumbnail("https://genrandom.com/cats")
             .add_field(" field title", "Some value here")
             .add_field("Inline field title", "Some value here", true)
             .add_field("Inline field title", "Some value here", true)
-            .set_image("")
+            .set_image("https://genrandom.com/cats")
             .set_footer(dpp::embed_footer().set_text("meow~").set_icon(
-                "https://fizzysylv.xyz/images/fizzysylv.png"))
+                "https://genrandom.com/cats"))
             .set_timestamp(time(0));
     dpp::message msg(event.command.channel_id, embed);
     event.reply(msg);
