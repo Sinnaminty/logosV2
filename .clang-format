@@ -40,7 +40,7 @@ IndentWrappedFunctionNames: 'true'
 JavaScriptWrapImports: 'true'
 KeepEmptyLinesAtTheStartOfBlocks: 'false'
 Language: Cpp
-MaxEmptyLinesToKeep: '1'
+MaxEmptyLinesToKeep: '0'
 NamespaceIndentation: All
 ObjCBinPackProtocolList: Never
 PointerAlignment: Right

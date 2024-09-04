@@ -1,6 +1,5 @@
 #pragma once
 #include <dpp/dpp.h>
-
 class SlashCommandListener {
    public:
     static void on_slashcommmand ( const dpp::slashcommand_t &event );
