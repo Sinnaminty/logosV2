@@ -1,4 +1,5 @@
 #include "SlashCommandListener.h"
+#include <dpp/dpp.h>
 SlashCommandListener::cmd SlashCommandListener::cmdHash (
     const std::string &str ) {
     if ( str == "whoami" ) return cmdWhoAmI;
