@@ -9,6 +9,8 @@ SlashCommandListener::cmd SlashCommandListener::cmdHash (
         return cmdConnect;
     else if ( str == "disconnect" )
         return cmdDisconnect;
+    else if ( str == "schedule" )
+        return cmdSchedule;
     else
         return cmdNotValid;
 }
@@ -102,6 +104,9 @@ void SlashCommandListener::on_slashcommmand (
             break;
         }
         case cmdDisconnect: {
+            event.reply ( "Not yet implemented! Working on it.." );
+        }
+        case cmdSchedule: {
             event.reply ( "Not yet implemented! Working on it.." );
         }
         case cmdNotValid: {

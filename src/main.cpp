@@ -28,8 +28,11 @@ int main ( int argc, char const *argv[] ) {
             dpp::slashcommand disconnect ( "disconnect",
                                            "Make me leave vc.",
                                            bot.me.id );
+            dpp::slashcommand schedule ( "schedule",
+                                         "See your future!",
+                                         bot.me.id );
             const std::vector< dpp::slashcommand > commands
-                = { whoami, ping, connect, disconnect };
+                = { whoami, ping, connect, disconnect, schedule };
             bot.guild_bulk_command_create ( commands, YDS_GUILD_ID );
         }
     } );
