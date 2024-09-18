@@ -1,21 +1,21 @@
 #include <dpp/dpp.h>
 #include <dpp/nlohmann/json.hpp>
 #include "Listeners.h"
-static const long YDS_GUILD_ID = 920188312591933460;
 using json = nlohmann::json;
-int main ( int argc, char const *argv[] ) {
+int main ( int argc, const char *argv[] ) {
     json configDocument;
-    std::ifstream configFile ( "../config.json" );
+    std::ifstream configFile ( "../json/config.json" );
     configFile >> configDocument;
+    dpp::snowflake ydsGuildId ( configDocument[ "yds-guild-id" ] );
     dpp::cluster bot ( configDocument[ "token" ],
                        dpp::i_default_intents | dpp::i_guild_members
                            | dpp::i_message_content );
     bot.on_log ( dpp::utility::cout_logger ( ) );
     bot.on_slashcommand ( &SlashCommandListener::on_slashcommmand );
-    bot.on_ready ( [ &bot ] ( const dpp::ready_t &event ) -> void {
+    bot.on_ready ( [ &bot, &ydsGuildId ] ( const dpp::ready_t &event ) -> void {
         if ( dpp::run_once< struct clear_bot_commands > ( ) ) {
             // bot.global_bulk_command_delete();
-            bot.guild_bulk_command_delete ( YDS_GUILD_ID );
+            bot.guild_bulk_command_delete ( ydsGuildId );
         }
         if ( dpp::run_once< struct register_bot_commands > ( ) ) {
             dpp::slashcommand whoami ( "whoami",
@@ -29,11 +29,23 @@ int main ( int argc, char const *argv[] ) {
                                            "Make me leave vc.",
                                            bot.me.id );
             dpp::slashcommand schedule ( "schedule",
-                                         "See your future!",
+                                         "Schedule an event.",
                                          bot.me.id );
+            schedule.add_option ( dpp::command_option ( dpp::co_string,
+                                                        "day",
+                                                        "Day of the event.",
+                                                        false ) );
+            schedule.add_option ( dpp::command_option ( dpp::co_string,
+                                                        "time",
+                                                        "Time of the event.",
+                                                        false ) );
+            schedule.add_option ( dpp::command_option ( dpp::co_string,
+                                                        "name",
+                                                        "Name of the event.",
+                                                        false ) );
             const std::vector< dpp::slashcommand > commands
                 = { whoami, ping, connect, disconnect, schedule };
-            bot.guild_bulk_command_create ( commands, YDS_GUILD_ID );
+            bot.guild_bulk_command_create ( commands, ydsGuildId );
         }
     } );
     bot.start ( dpp::st_wait );

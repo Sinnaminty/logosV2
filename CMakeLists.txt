@@ -7,9 +7,10 @@ project(${BOT_NAME}
   VERSION 0.0.1
   DESCRIPTION "Discord Bot built using the DPP API Lib. Created by Fizzy."
 )
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 file(GLOB_RECURSE src "src/*.cpp")
 add_executable(${BOT_NAME} ${src})
+
 
 string(ASCII 27 Esc)
 
@@ -27,6 +28,7 @@ find_package(OpenSSL REQUIRED)
 
 target_include_directories(${BOT_NAME} PUBLIC
   ${OPENSSL_INCLUDE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_link_libraries(${BOT_NAME}

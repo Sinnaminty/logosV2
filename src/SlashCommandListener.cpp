@@ -107,7 +107,14 @@ void SlashCommandListener::on_slashcommmand (
             event.reply ( "Not yet implemented! Working on it.." );
         }
         case cmdSchedule: {
-            event.reply ( "Not yet implemented! Working on it.." );
+            dpp::snowflake user_id = event.command.usr.id;
+            std::string day
+                = std::get< std::string > ( event.get_parameter ( "day" ) );
+            std::string time
+                = std::get< std::string > ( event.get_parameter ( "time" ) );
+            std::string event_name = std::get< std::string > (
+                event.get_parameter ( "event_name" ) );
+            std::string new_event = day + " " + time + ": " + event_name;
         }
         case cmdNotValid: {
             event.reply ( "Invalid Command, dummy :p" );
