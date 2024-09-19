@@ -32,7 +32,6 @@ target_include_directories(${BOT_NAME} PUBLIC
 )
 
 target_link_libraries(${BOT_NAME}
-  dl
   ${CMAKE_THREAD_LIBS_INIT}
   ${OPENSSL_CRYPTO_LIBRARY}
   ${OPENSSL_SSL_LIBRARY}
