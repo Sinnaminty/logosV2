@@ -1,6 +1,7 @@
 #include <dpp/dpp.h>
 #include <dpp/nlohmann/json.hpp>
-#include "Listeners.h"
+#include "MessageListener.h"
+#include "SlashCommandListener.h"
 using json = nlohmann::json;
 int main ( int argc, const char *argv[] ) {
     json configDocument;
@@ -12,6 +13,9 @@ int main ( int argc, const char *argv[] ) {
                            | dpp::i_message_content );
     bot.on_log ( dpp::utility::cout_logger ( ) );
     bot.on_slashcommand ( &SlashCommandListener::on_slashcommmand );
+    // bot.on_message_create ( &MessageListener::on_message_create );
+    // bot.on_message_delete ( &MessageListener::on_message_delete );
+    // bot.on_message_delete_bulk ( &MessageListener::on_message_delete_bulk );
     bot.on_ready ( [ &bot, &ydsGuildId ] ( const dpp::ready_t &event ) -> void {
         if ( dpp::run_once< struct clear_bot_commands > ( ) ) {
             // bot.global_bulk_command_delete();

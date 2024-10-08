@@ -5,13 +5,18 @@ class SlashCommandListener {
     static void on_slashcommmand ( const dpp::slashcommand_t &event );
 
    private:
-    enum cmd {
-        cmdWhoAmI,
-        cmdPing,
-        cmdConnect,
-        cmdDisconnect,
-        cmdSchedule,
-        cmdNotValid
+    enum class Command {
+        WhoAmI,
+        Ping,
+        Connect,
+        Disconnect,
+        Schedule,
+        NotValid
     };
-    static cmd cmdHash ( const std::string &str );
+    static Command cmdHash ( const std::string &str );
+    static void cmdWhoAmI ( const dpp::slashcommand_t &event );
+    static void cmdPing ( const dpp::slashcommand_t &event );
+    static void cmdConnect ( const dpp::slashcommand_t &event );
+    static void cmdDisconnect ( const dpp::slashcommand_t &event );
+    static void cmdSchedule ( const dpp::slashcommand_t &event );
 };
