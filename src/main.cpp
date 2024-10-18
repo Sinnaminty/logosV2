@@ -33,6 +33,14 @@ int main ( int argc, const char *argv[] ) {
                                        "Information about Logos.",
                                        bot.me.id );
 
+            dpp::slashcommand connect ( "connect",
+                                        "Connect me to a VC.",
+                                        bot.me.id );
+
+            dpp::slashcommand disconnect ( "disconnect",
+                                           "Disconnect me from a VC.",
+                                           bot.me.id );
+
             dpp::slashcommand play (
                 "play",
                 "Play audio from a Youtube link, connects bot to the voice "
@@ -55,7 +63,7 @@ int main ( int argc, const char *argv[] ) {
                 bot.me.id );
 
             const std::vector< dpp::slashcommand > commands
-                = { whoami, play, pause, stop };
+                = { whoami, connect, disconnect, play, pause, stop };
             bot.guild_bulk_command_create ( commands, ydsGuildId );
         }
     } );

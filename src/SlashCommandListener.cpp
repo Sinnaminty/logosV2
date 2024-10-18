@@ -8,48 +8,19 @@
 void SlashCommandListener::on_slashcommmand (
     const dpp::slashcommand_t &event ) {
     const std::string str = event.command.get_command_name ( );
-
-    switch ( cmdHash ( str ) ) {
-        case Command::WhoAmI: {
-            LogosUtility::WhoAmI ( event );
-            break;
-        }
-
-        case Command::Play: {
-            LogosSymphony::Play ( event );
-            break;
-        }
-
-        case Command::Pause: {
-            LogosSymphony::Pause ( event );
-            break;
-        }
-
-        case Command::Stop: {
-            LogosSymphony::Stop ( event );
-            break;
-        }
-
-        case Command::NotValid: {
-            event.reply ( "Invalid Command, dummy :p" );
-            break;
-        }
+    if ( str == "whoami" ) {
+        LogosUtility::WhoAmI ( event );
+    } else if ( str == "connect" ) {
+        LogosSymphony::Connect ( event );
+    } else if ( str == "disconnect" ) {
+        LogosSymphony::Disconnect ( event );
+    } else if ( str == "play" ) {
+        LogosSymphony::Play ( event );
+    } else if ( str == "pause" ) {
+        LogosSymphony::Pause ( event );
+    } else if ( str == "stop" ) {
+        LogosSymphony::Stop ( event );
+    } else {
+        event.reply ( "Invalid command, dummy!" );
     }
-}
-
-SlashCommandListener::Command SlashCommandListener::cmdHash (
-    const std::string &str ) {
-    if ( str == "whoami" ) return Command::WhoAmI;
-
-    else if ( str == "play" )
-        return Command::Play;
-
-    else if ( str == "pause" )
-        return Command::Pause;
-
-    else if ( str == "stop" )
-        return Command::Stop;
-
-    else
-        return Command::NotValid;
 }
