@@ -1,21 +1,28 @@
 #include "LogosSymphony.h"
+
 void LogosSymphony::Play ( const dpp::slashcommand_t &event ) {
     std::string url
         = std::get< std::string > ( event.get_parameter ( "link" ) );
     Connect ( event );
     // Some Other stuff
 }
+
 void LogosSymphony::Pause ( const dpp::slashcommand_t &event ) {}
+
 void LogosSymphony::Stop ( const dpp::slashcommand_t &event ) {}
+
 void LogosSymphony::Connect ( const dpp::slashcommand_t &event ) {
     dpp::guild *g = dpp::find_guild ( event.command.guild_id );
     // will return null if bot not in channel
+    //
     auto current_vc = event.from->get_voice ( event.command.guild_id );
     bool join_vc = true;
+
     if ( current_vc ) {
         // Find the channel id that the issuing user is currently in
         auto users_vc
             = g->voice_members.find ( event.command.get_issuing_user ( ).id );
+
         if ( users_vc != g->voice_members.end ( )
              && current_vc->channel_id == users_vc->second.channel_id ) {
             join_vc = false;

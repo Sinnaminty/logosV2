@@ -1,9 +1,11 @@
 #include "LogosUtility.h"
+
 void LogosUtility::WhoAmI ( const dpp::slashcommand_t &event ) {
     dpp::embed embed = createEmbed ( "Repetition Legitimizes." );
     dpp::message msg ( event.command.channel_id, embed );
     event.reply ( msg );
 }
+
 dpp::embed LogosUtility::createEmbed ( const std::string &description ) {
     return dpp::embed ( )
         .set_color ( dpp::colors::pastel_light_blue )
