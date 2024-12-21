@@ -2,60 +2,22 @@
 #include <dpp/channel.h>
 #include <dpp/dpp.h>
 #include <dpp/message.h>
+#include <dpp/queues.h>
 
-#include <algorithm>
 #include <dpp/nlohmann/json.hpp>
+
+#include "U.h"
 
 using json = nlohmann::json;
 
-dpp::embed createEmbed ( const std::string &description ) {
-    return dpp::embed ( )
-        .set_color ( dpp::colors::pastel_light_blue )
-        .set_title ( "Logos" )
-        .set_url ( "https://fizzysylv.xyz/" )
-        .set_author ( "Fizzy",
-                      "https://fizzysylv.xyz/",
-                      "https://genrandom.com/cats" )
-        .set_description ( description )
-        .set_thumbnail ( "https://genrandom.com/cats" )
-        .add_field ( " field title", "Some value here" )
-        .add_field ( "Inline field title", "Some value here", true )
-        .add_field ( "Inline field title", "Some value here", true )
-        .set_image ( "https://genrandom.com/cats" )
-        .set_footer ( dpp::embed_footer ( ).set_text ( "meow~" ).set_icon (
-            "https://genrandom.com/cats" ) )
-        .set_timestamp ( time ( 0 ) );
-}
-
-void archiveChannel ( const std::string &channelName,
-                      const dpp::cache< dpp::message > &cache ) {
-    //                                        std::ofstream file ( channel.name
-    //                                                             + ".txt" );
-    //                                        if ( file.is_open ( ) ) {
-    //                                            std::cout << "file get! \n";
-    //                                            file << "[" <<
-    //                                            msg.author.username
-    //                                                 << "] " << ": " <<
-    //                                                 msg.content
-    //                                                 << "\n";
-    //                                            file.close ( );
-    //                                        } else {
-    //                                            std::cerr << "Failed to create
-    //                                            "
-    //                                                         "file for
-    //                                                         channel: "
-    //                                                      << channel.name <<
-    //                                                      "\n";
-    //                                        }
-}
-
 int main ( int argc, const char *argv[] ) {
     json configDocument;
-    std::ifstream configFile ( "../json/config.json" );
+    std::ifstream configFile ( "json/config.json" );
     configFile >> configDocument;
 
     dpp::snowflake ydsGuildId ( configDocument[ "yds-guild-id" ] );
     dpp::snowflake bosGuildId ( configDocument[ "bos-guild-id" ] );
+
     dpp::cluster bot ( configDocument[ "token" ],
                        dpp::i_default_intents | dpp::i_guild_members
                            | dpp::i_message_content );
@@ -63,9 +25,28 @@ int main ( int argc, const char *argv[] ) {
     bot.on_log ( dpp::utility::cout_logger ( ) );
     bot.on_slashcommand ( [ & ] ( const dpp::slashcommand_t &event ) {
         if ( event.command.get_command_name ( ) == "whoami" ) {
-            dpp::embed embed = createEmbed ( "Repetition Legitimizes." );
+            dpp::embed embed = U::createEmbed ( "Repetition Legitimizes." );
             dpp::message msg ( event.command.channel_id, embed );
             event.reply ( msg );
+
+        } else if ( event.command.get_command_name ( ) == "warfstatus" ) {
+            bot.request ( "https://api.warframestat.us/pc/",
+                          dpp::m_get,
+                          [] ( const dpp::http_request_completion_t &cc ) {
+                              // This callback is called when the HTTP request
+                              // completes. See documentation of
+                              // dpp::http_request_completion_t for information
+                              // on the fields in the parameter.
+                              std::cout
+                                  << "I got reply: " << cc.body
+                                  << " with HTTP status code: " << cc.status
+                                  << "\n";
+                          },
+                          "",
+                          "application/json",
+                          { } );
+            event.reply ( "check console!" );
+
         } else if ( event.command.get_command_name ( ) == "archive" ) {
             dpp::snowflake guild_id = event.command.guild_id;
 
@@ -119,7 +100,7 @@ int main ( int argc, const char *argv[] ) {
                                               << channel.name
                                               << ". passing to archiveChannel.";
 
-                                    archiveChannel ( channel.name, cache );
+                                    U::archiveChannel ( channel.name, cache );
                                 } );
                         }
                     }
@@ -138,13 +119,18 @@ int main ( int argc, const char *argv[] ) {
                                        "Information about Logos.",
                                        bot.me.id );
 
-            dpp::slashcommand archive (
-                "archive",
-                "Saves every text channel in this server.",
+            dpp::slashcommand warfstatus (
+                "warfstatus",
+                "Get World State Data from Warframe.",
                 bot.me.id );
 
+            //   dpp::slashcommand archive (
+            //       "archive",
+            //       "Saves every text channel in this server.",
+            //       bot.me.id );
+
             const std::vector< dpp::slashcommand > commands
-                = { whoami, archive };
+                = { whoami, warfstatus };
             bot.guild_bulk_command_create ( commands, ydsGuildId );
             std::cout << "Bot Ready!\n";
         }
