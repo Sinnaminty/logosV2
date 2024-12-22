@@ -4,7 +4,6 @@
 #include <dpp/message.h>
 #include <dpp/queues.h>
 
-#include <mpg123.h>
 #include <out123.h>
 #include <unistd.h>
 #include <fstream>
@@ -16,48 +15,7 @@
 #include <Logos/U.h>
 
 using json = nlohmann::json;
-
-std::string song_to_load = "";
-
-dpp::snowflake last_ch_id = 0;
-bool encode_thread_active = false;
-
-std::vector<uint8_t> get_song(std::string file) {
-  std::vector<uint8_t> pcmdata;
-
-  mpg123_init();
-
-  int err;
-  mpg123_handle* mh = mpg123_new(NULL, &err);
-  unsigned char* buffer;
-  size_t buffer_size;
-  size_t done;
-  int channels, encoding;
-  long rate;
-
-  mpg123_param(mh, MPG123_FORCE_RATE, 48000, 48000.0);
-
-  buffer_size = mpg123_outblock(mh);
-  buffer = new unsigned char[buffer_size];
-
-  mpg123_open(mh, file.c_str());
-  mpg123_getformat(mh, &rate, &channels, &encoding);
-
-  unsigned int counter = 0;
-  for (int totalBtyes = 0;
-       mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK;) {
-    for (auto i = 0; i < buffer_size; i++) {
-      pcmdata.push_back(buffer[i]);
-    }
-    counter += buffer_size;
-    totalBtyes += done;
-  }
-  delete buffer;
-  mpg123_close(mh);
-  mpg123_delete(mh);
-  mpg123_exit();
-  return pcmdata;
-}
+using namespace U;
 
 std::string current_song;
 
@@ -76,13 +34,7 @@ int main(int argc, const char* argv[]) {
   bot.on_log(dpp::utility::cout_logger());
 
   bot.on_slashcommand([&](const dpp::slashcommand_t& event) {
-    if (event.command.get_command_name() == "whoami") {
-      dpp::embed embed =
-          U::createEmbed(U::mType::GOOD, "Repetition Legitimizes.");
-      dpp::message msg(event.command.channel_id, embed);
-      event.reply(msg);
-
-    } else if (event.command.get_command_name() == "queue") {
+    if (event.command.get_command_name() == "queue") {
       std::string resp = "__**Current Queue:**__\n\n";
       bool any = false;
 
@@ -110,6 +62,8 @@ int main(int argc, const char* argv[]) {
                                  U::createEmbed(U::mType::GOOD, resp)));
       }
 
+      ////////////////////////////////////////////////////////////////////////////////////////////
+
     } else if (event.command.get_command_name() == "np") {
       dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
 
@@ -125,6 +79,8 @@ int main(int argc, const char* argv[]) {
             U::createEmbed(U::mType::BAD,
                            "...No sounds here except crickets... 🦗")));
       }
+
+      ////////////////////////////////////////////////////////////////////////////////////////////
 
     } else if (event.command.get_command_name() == "skip") {
       dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
@@ -143,6 +99,8 @@ int main(int argc, const char* argv[]) {
                                         "No song to skip... I have nothing!")));
       }
 
+      ////////////////////////////////////////////////////////////////////////////////////////////
+
     } else if (event.command.get_command_name() == "stop") {
       dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
 
@@ -159,8 +117,28 @@ int main(int argc, const char* argv[]) {
                                         "I'm not in a voice channel, dork.")));
       }
 
+      ////////////////////////////////////////////////////////////////////////////////////////////
+
     } else if (event.command.get_command_name() == "play") {
+      song_to_load = trim(std::get<std::string>(parameters[0].second));
+      last_ch_id = src.channel_id;
+      dpp::voiceconn* v = bot.get_shard(0)->get_voice(src.guild_id);
+      if (v && v->voiceclient && v->voiceclient->is_ready()) {
+        start_play(v->voiceclient, bot, &command_handler, &src);
+      } else {
+        dpp::guild* g = dpp::find_guild(src.guild_id);
+        if (!g->connect_member_voice(src.issuer.id)) {
+          bad_embed(command_handler, src,
+                    "🔇 You don't seem to be on a voice channel! :(");
+        } else {
+          good_embed(command_handler, src, "🔈 Connecting to voice...");
+        }
+      }
+      ////////////////////////////////////////////////////////////////////////////////////////////
+
     } else if (event.command.get_command_name() == "search") {
+      ////////////////////////////////////////////////////////////////////////////////////////////
+
     } else if (event.command.get_command_name() == "warfstatus") {
       bot.request("https://api.warframestat.us/pc/", dpp::m_get,
                   [](const dpp::http_request_completion_t& cc) {
@@ -174,6 +152,8 @@ int main(int argc, const char* argv[]) {
                   },
                   "", "application/json", {});
       event.reply("check console!");
+
+      ////////////////////////////////////////////////////////////////////////////////////////////
 
     } else if (event.command.get_command_name() == "archive") {
       dpp::snowflake guild_id = event.command.guild_id;

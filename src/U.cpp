@@ -1,35 +1,44 @@
 #include <Logos/U.h>
 #include <dpp/colors.h>
+#include <mpg123.h>
 
 namespace U {
 
-void embed(dpp::cluster& bot,
-           uint32_t color,
-           dpp::snowflake channel_id,
-           const std::string& message) {
-  bot.message_create(dpp::message(channel_id, "")
-                         .add_embed(dpp::embed()
-                                        .set_description(message)
-                                        .set_title("Pickle Rick!")
-                                        .set_color(color)),
-                     [&](const dpp::confirmation_callback_t& callback) {
-                       if (callback.is_error()) {
-                         bot.log(dpp::ll_error, "Failed to send message: " +
-                                                    callback.http_info.body);
-                       }
-                     });
-}
+std::vector<uint8_t> get_song(std::string file) {
+  std::vector<uint8_t> pcmdata;
 
-void good_embed(dpp::cluster& bot,
-                dpp::snowflake channel_id,
-                const std::string& message) {
-  embed(bot, 0x7aff7a, channel_id, message);
-}
+  mpg123_init();
 
-void bad_embed(dpp::cluster& bot,
-               dpp::snowflake channel_id,
-               const std::string& message) {
-  embed(bot, 0xff7a7a, channel_id, message);
+  int err;
+  mpg123_handle* mh = mpg123_new(NULL, &err);
+  unsigned char* buffer;
+  size_t buffer_size;
+  size_t done;
+  int channels, encoding;
+  long rate;
+
+  mpg123_param(mh, MPG123_FORCE_RATE, 48000, 48000.0);
+
+  buffer_size = mpg123_outblock(mh);
+  buffer = new unsigned char[buffer_size];
+
+  mpg123_open(mh, file.c_str());
+  mpg123_getformat(mh, &rate, &channels, &encoding);
+
+  unsigned int counter = 0;
+  for (int totalBtyes = 0;
+       mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK;) {
+    for (auto i = 0; i < buffer_size; i++) {
+      pcmdata.push_back(buffer[i]);
+    }
+    counter += buffer_size;
+    totalBtyes += done;
+  }
+  delete buffer;
+  mpg123_close(mh);
+  mpg123_delete(mh);
+  mpg123_exit();
+  return pcmdata;
 }
 
 dpp::embed createEmbed(const U::mType& mType, const std::string& m) {
@@ -50,6 +59,7 @@ dpp::embed createEmbed(const U::mType& mType, const std::string& m) {
           .set_timestamp(time(0));
     }
     default: {
+      return dpp::embed();
       break;
     }
   }
@@ -58,43 +68,4 @@ dpp::embed createEmbed(const U::mType& mType, const std::string& m) {
 void archiveChannel(const std::string& channelName,
                     const dpp::cache<dpp::message>& cache) {}
 
-bool match(const char* str, const char* mask) {
-  char* cp = NULL;
-  char* mp = NULL;
-  char* string = (char*)str;
-  char* wild = (char*)mask;
-
-  while ((*string) && (*wild != '*')) {
-    if ((tolower(*wild) != tolower(*string)) && (*wild != '?')) {
-      return 0;
-    }
-    wild++;
-    string++;
-  }
-
-  while (*string) {
-    if (*wild == '*') {
-      if (!*++wild) {
-        return 1;
-      }
-      mp = wild;
-      cp = string + 1;
-    } else {
-      if ((tolower(*wild) == tolower(*string)) || (*wild == '?')) {
-        wild++;
-        string++;
-
-      } else {
-        wild = mp;
-        string = cp++;
-      }
-    }
-  }
-
-  while (*wild == '*') {
-    wild++;
-  }
-
-  return !*wild;
-}
 }  // namespace U
