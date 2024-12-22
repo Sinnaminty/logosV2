@@ -33,6 +33,12 @@ int main(int argc, const char* argv[]) {
 
   bot.on_log(dpp::utility::cout_logger());
 
+  bot.on_voice_track_marker([&](const dpp::voice_track_marker_t& ev) {
+    std::string song = ev.track_meta;
+
+    current_song = song;
+  });
+
   bot.on_slashcommand([&](const dpp::slashcommand_t& event) {
     if (event.command.get_command_name() == "queue") {
       std::string resp = "__**Current Queue:**__\n\n";
@@ -165,10 +171,13 @@ int main(int argc, const char* argv[]) {
         return;
       }
 
-      /* Stream the already decoded MP3 file. This passes the PCM data to the
-       * library to be encoded to OPUS */
-      std::vector<uint8_t> pcmdata = encodeSong("music/a.mp3");
+      const std::string link =
+          std::get<std::string>(event.get_parameter("link"));
 
+      std::string fileName = downloadSong(link);
+      std::vector<uint8_t> pcmdata = encodeSong("music/" + fileName);
+
+      v->voiceclient->insert_marker(fileName);
       v->voiceclient->send_audio_raw((uint16_t*)pcmdata.data(), pcmdata.size());
 
       event.reply(dpp::message(event.command.channel_id,
@@ -259,8 +268,8 @@ int main(int argc, const char* argv[]) {
           "stop", "Stop playing, clear queue and leave voice channel.",
           bot.me.id);
       dpp::slashcommand play("play", "Play a song.", bot.me.id);
-      play.add_option((dpp::command_option(dpp::co_string, "name",
-                                           "The name of the song.", true)));
+      play.add_option((dpp::command_option(dpp::co_string, "link",
+                                           "The link to the song.", true)));
 
       dpp::slashcommand warfstatus(
           "warfstatus", "Get World State Data from Warframe.", bot.me.id);

@@ -1,6 +1,11 @@
 #include <Logos/U.h>
 #include <dpp/colors.h>
 #include <mpg123.h>
+#include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <iostream>
+#include <string>
 
 namespace U {
 
@@ -63,6 +68,44 @@ std::vector<uint8_t> encodeSong(std::string file) {
   mpg123_delete(mh);
   mpg123_exit();
   return pcmdata;
+}
+
+std::string downloadSong(const std::string& link) {
+  const std::string outputDir = "music";
+  if (!std::filesystem::exists(outputDir)) {
+    std::filesystem::create_directory(outputDir);
+  }
+
+  // Command to download the MP3 using yt-dlp
+  std::string command = "yt-dlp --extract-audio --audio-format mp3 ";
+  command += "--output \"" + outputDir + "/%(title)s.%(ext)s\" ";
+  command += "\"" + link + "\"";
+
+  // Execute the command
+  int retCode = std::system(command.c_str());
+  if (retCode != 0) {
+    throw std::runtime_error("Error: Failed to download the MP3 using yt-dlp.");
+  }
+
+  // Find the latest file in the "music" directory
+  std::string latestFile;
+  auto latestTime = std::filesystem::file_time_type::min();
+
+  for (const auto& entry : std::filesystem::directory_iterator(outputDir)) {
+    if (entry.is_regular_file()) {
+      auto lastWriteTime = entry.last_write_time();
+      if (lastWriteTime > latestTime) {
+        latestTime = lastWriteTime;
+        latestFile = entry.path().filename().string();
+      }
+    }
+  }
+
+  if (latestFile.empty()) {
+    throw std::runtime_error("Error: Could not determine the downloaded file.");
+  }
+
+  return latestFile;
 }
 
 void archiveChannel(const std::string& channelName,
