@@ -43,10 +43,13 @@ int main(int argc, const char* argv[]) {
       if (v && v->voiceclient && v->voiceclient->is_ready()) {
         std::vector<std::string> songqueue =
             v->voiceclient->get_marker_metadata();
+
         for (auto& s : songqueue) {
           any = true;
+
           if (resp.length() < 2048) {
             resp += "🎵 " + s + "\n";
+
           } else {
             break;
           }
@@ -56,10 +59,13 @@ int main(int argc, const char* argv[]) {
       if (!any) {
         event.reply(dpp::message(
             event.command.channel_id,
-            U::createEmbed(U::mType::BAD, "⚠️ The queue is empty, fool")));
+            createEmbed(mType::BAD, "⚠️ The queue is empty, fool")));
+        return;
+
       } else {
         event.reply(dpp::message(event.command.channel_id,
-                                 U::createEmbed(U::mType::GOOD, resp)));
+                                 createEmbed(mType::GOOD, resp)));
+        return;
       }
 
       ////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,13 +77,15 @@ int main(int argc, const char* argv[]) {
           v->voiceclient->get_tracks_remaining() > 0) {
         event.reply(dpp::message(
             event.command.channel_id,
-            U::createEmbed(U::mType::GOOD,
-                           "⏯️ Currently playing: " + current_song)));
+            createEmbed(mType::GOOD, "⏯️ Currently playing: " + current_song)));
+        return;
+
       } else {
         event.reply(dpp::message(
             event.command.channel_id,
-            U::createEmbed(U::mType::BAD,
-                           "...No sounds here except crickets... 🦗")));
+            createEmbed(mType::BAD,
+                        "...No sounds here except crickets... 🦗")));
+        return;
       }
 
       ////////////////////////////////////////////////////////////////////////////////////////////
@@ -89,14 +97,15 @@ int main(int argc, const char* argv[]) {
           v->voiceclient->get_tracks_remaining() > 1) {
         event.reply(dpp::message(
             event.command.channel_id,
-            U::createEmbed(U::mType::GOOD,
-                           "⏯️ Currently playing: " + current_song)));
+            createEmbed(mType::GOOD, "⏯️ Currently playing: " + current_song)));
         v->voiceclient->skip_to_next_marker();
+        return;
+
       } else {
-        event.reply(
-            dpp::message(event.command.channel_id,
-                         U::createEmbed(U::mType::BAD,
-                                        "No song to skip... I have nothing!")));
+        event.reply(dpp::message(
+            event.command.channel_id,
+            createEmbed(mType::BAD, "⚠️No song to skip... I have nothing!")));
+        return;
       }
 
       ////////////////////////////////////////////////////////////////////////////////////////////
@@ -105,38 +114,67 @@ int main(int argc, const char* argv[]) {
       dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
 
       if (v && v->voiceclient && v->voiceclient->is_ready()) {
-        event.reply(dpp::message(
-            event.command.channel_id,
-            U::createEmbed(U::mType::GOOD, "⏯️ Leaving voice... ")));
-        event.from->disconnect_voice(event.command.guild_id);
-
-      } else {
         event.reply(
             dpp::message(event.command.channel_id,
-                         U::createEmbed(U::mType::BAD,
-                                        "I'm not in a voice channel, dork.")));
+                         createEmbed(mType::GOOD, "⏯️ Leaving voice... ")));
+
+        event.from->disconnect_voice(event.command.guild_id);
+        return;
+
+      } else {
+        event.reply(dpp::message(
+            event.command.channel_id,
+            createEmbed(mType::BAD, "⚠️I'm not in a voice channel, dork.")));
+        return;
       }
+
+      ////////////////////////////////////////////////////////////////////////////////////////////
+
+    } else if (event.command.get_command_name() == "join") {
+      dpp::guild* g = dpp::find_guild(event.command.guild_id);
+
+      /* Attempt to connect to a voice channel, returns false if we fail to
+       * connect. */
+      if (!g->connect_member_voice(event.command.get_issuing_user().id)) {
+        event.reply(dpp::message(
+            event.command.channel_id,
+            createEmbed(mType::BAD,
+                        "🔇 You don't seem to be on a voice channel! :(")));
+        return;
+      }
+
+      /* Tell the user we joined their channel. */
+      event.reply(
+          dpp::message(event.command.channel_id,
+                       createEmbed(mType::GOOD, "🔈 Connecting to voice...")));
 
       ////////////////////////////////////////////////////////////////////////////////////////////
 
     } else if (event.command.get_command_name() == "play") {
-      song_to_load = trim(std::get<std::string>(parameters[0].second));
-      last_ch_id = src.channel_id;
-      dpp::voiceconn* v = bot.get_shard(0)->get_voice(src.guild_id);
-      if (v && v->voiceclient && v->voiceclient->is_ready()) {
-        start_play(v->voiceclient, bot, &command_handler, &src);
-      } else {
-        dpp::guild* g = dpp::find_guild(src.guild_id);
-        if (!g->connect_member_voice(src.issuer.id)) {
-          bad_embed(command_handler, src,
-                    "🔇 You don't seem to be on a voice channel! :(");
-        } else {
-          good_embed(command_handler, src, "🔈 Connecting to voice...");
-        }
-      }
-      ////////////////////////////////////////////////////////////////////////////////////////////
+      /* Get the voice channel the bot is in, in this current guild. */
+      dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
 
-    } else if (event.command.get_command_name() == "search") {
+      /* If the voice channel was invalid, or there is an issue with it, then
+       * tell the user. */
+      if (!v || !v->voiceclient || !v->voiceclient->is_ready()) {
+        event.reply(dpp::message(
+            event.command.channel_id,
+            createEmbed(mType::BAD,
+                        "🔇 There was an issue with getting the voice channel. "
+                        "Make sure I'm in a voice channel! :(")));
+        return;
+      }
+
+      /* Stream the already decoded MP3 file. This passes the PCM data to the
+       * library to be encoded to OPUS */
+      // v->voiceclient->send_audio_raw((uint16_t*)pcmdata.data(),
+      // pcmdata.size());
+
+      event.reply(dpp::message(
+          event.command.channel_id,
+          createEmbed(mType::GOOD, "🔈 If you're here, congrats!")));
+      return;
+
       ////////////////////////////////////////////////////////////////////////////////////////////
 
     } else if (event.command.get_command_name() == "warfstatus") {
@@ -212,6 +250,7 @@ int main(int argc, const char* argv[]) {
     }
 
     if (dpp::run_once<struct register_bot_commands>()) {
+      dpp::slashcommand join("join", "Joins the user's vc.", bot.me.id);
       dpp::slashcommand queue("queue", "Show music queue.", bot.me.id);
       dpp::slashcommand np("np", "Show currently playing song.", bot.me.id);
       dpp::slashcommand skip("skip", "Skip to the next song in queue.",
@@ -222,11 +261,6 @@ int main(int argc, const char* argv[]) {
       dpp::slashcommand play("play", "Play a song.", bot.me.id);
       play.add_option((dpp::command_option(dpp::co_string, "name",
                                            "The name of the song.", true)));
-      dpp::slashcommand search("search", "Search for a song.", bot.me.id);
-      search.add_option((dpp::command_option(dpp::co_string, "name",
-                                             "The name of the song.", true)));
-
-      dpp::slashcommand whoami("whoami", "Information about Logos.", bot.me.id);
 
       dpp::slashcommand warfstatus(
           "warfstatus", "Get World State Data from Warframe.", bot.me.id);
@@ -237,7 +271,7 @@ int main(int argc, const char* argv[]) {
       //       bot.me.id );
 
       const std::vector<dpp::slashcommand> commands = {
-          queue, np, skip, stop, play, search, whoami, warfstatus};
+          join, queue, np, skip, stop, play, warfstatus};
       bot.guild_bulk_command_create(commands, ydsGuildId);
       std::cout << "Bot Ready!\n";
     }

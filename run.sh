@@ -8,7 +8,7 @@ fi
 
 # Generate the build system
 echo "Running cmake to configure the build..."
-cmake -B build
+cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 # Build the project
 echo "Building the project..."

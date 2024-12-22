@@ -41,9 +41,9 @@ std::vector<uint8_t> get_song(std::string file) {
   return pcmdata;
 }
 
-dpp::embed createEmbed(const U::mType& mType, const std::string& m) {
+dpp::embed createEmbed(const mType& mType, const std::string& m) {
   switch (mType) {
-    case U::mType::GOOD: {
+    case mType::GOOD: {
       return dpp::embed()
           .set_color(dpp::colors::iguana_green)
           .set_title("Success!")
@@ -51,7 +51,7 @@ dpp::embed createEmbed(const U::mType& mType, const std::string& m) {
           .set_timestamp(time(0));
     }
 
-    case U::mType::BAD: {
+    case mType::BAD: {
       return dpp::embed()
           .set_color(dpp::colors::cranberry)
           .set_title("Uh-Oh!")
