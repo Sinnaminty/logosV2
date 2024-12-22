@@ -9,7 +9,7 @@ enum class mType { GOOD, BAD };
 
 dpp::embed createEmbed(const U::mType& mType, const std::string& m);
 
-std::vector<uint8_t> get_song(std::string file);
+std::vector<uint8_t> encodeSong(std::string file);
 
 void archiveChannel(const std::string& channelName,
                     const dpp::cache<dpp::message>& cache);

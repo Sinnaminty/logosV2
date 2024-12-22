@@ -167,12 +167,12 @@ int main(int argc, const char* argv[]) {
 
       /* Stream the already decoded MP3 file. This passes the PCM data to the
        * library to be encoded to OPUS */
-      // v->voiceclient->send_audio_raw((uint16_t*)pcmdata.data(),
-      // pcmdata.size());
+      std::vector<uint8_t> pcmdata = encodeSong("music/a.mp3");
 
-      event.reply(dpp::message(
-          event.command.channel_id,
-          createEmbed(mType::GOOD, "🔈 If you're here, congrats!")));
+      v->voiceclient->send_audio_raw((uint16_t*)pcmdata.data(), pcmdata.size());
+
+      event.reply(dpp::message(event.command.channel_id,
+                               createEmbed(mType::GOOD, "🔈 Playing!")));
       return;
 
       ////////////////////////////////////////////////////////////////////////////////////////////

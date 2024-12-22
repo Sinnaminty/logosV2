@@ -4,7 +4,31 @@
 
 namespace U {
 
-std::vector<uint8_t> get_song(std::string file) {
+dpp::embed createEmbed(const mType& mType, const std::string& m) {
+  switch (mType) {
+    case mType::GOOD: {
+      return dpp::embed()
+          .set_color(dpp::colors::iguana_green)
+          .set_title("Success!")
+          .set_description(m)
+          .set_timestamp(time(0));
+    }
+
+    case mType::BAD: {
+      return dpp::embed()
+          .set_color(dpp::colors::cranberry)
+          .set_title("Uh-Oh!")
+          .set_description(m)
+          .set_timestamp(time(0));
+    }
+    default: {
+      return dpp::embed();
+      break;
+    }
+  }
+}
+
+std::vector<uint8_t> encodeSong(std::string file) {
   std::vector<uint8_t> pcmdata;
 
   mpg123_init();
@@ -39,30 +63,6 @@ std::vector<uint8_t> get_song(std::string file) {
   mpg123_delete(mh);
   mpg123_exit();
   return pcmdata;
-}
-
-dpp::embed createEmbed(const mType& mType, const std::string& m) {
-  switch (mType) {
-    case mType::GOOD: {
-      return dpp::embed()
-          .set_color(dpp::colors::iguana_green)
-          .set_title("Success!")
-          .set_description(m)
-          .set_timestamp(time(0));
-    }
-
-    case mType::BAD: {
-      return dpp::embed()
-          .set_color(dpp::colors::cranberry)
-          .set_title("Uh-Oh!")
-          .set_description(m)
-          .set_timestamp(time(0));
-    }
-    default: {
-      return dpp::embed();
-      break;
-    }
-  }
 }
 
 void archiveChannel(const std::string& channelName,
