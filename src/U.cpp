@@ -72,10 +72,12 @@ std::vector<uint8_t> encodeSong(std::string file) {
 
 std::string downloadSong(const std::string& link) {
   const std::string outputDir = "music";
-  if (!std::filesystem::exists(outputDir)) {
-    std::filesystem::create_directory(outputDir);
+
+  if (std::filesystem::exists(outputDir)) {
+    std::filesystem::remove_all(outputDir);
   }
 
+  std::filesystem::create_directory(outputDir);
   // Command to download the MP3 using yt-dlp
   std::string command = "yt-dlp --extract-audio --audio-format mp3 ";
   command += "--output \"" + outputDir + "/%(title)s.%(ext)s\" ";

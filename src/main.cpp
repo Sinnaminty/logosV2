@@ -2,12 +2,16 @@
 #include <dpp/channel.h>
 #include <dpp/dpp.h>
 #include <dpp/message.h>
+#include <dpp/misc-enum.h>
 #include <dpp/queues.h>
 
 #include <out123.h>
+#include <sys/types.h>
 #include <unistd.h>
+#include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <vector>
 
 #include <dpp/nlohmann/json.hpp>
@@ -17,7 +21,8 @@
 using json = nlohmann::json;
 using namespace U;
 
-std::string current_song;
+std::vector<std::vector<uint8_t>> pcmQueue;
+std::string currentSong;
 
 int main(int argc, const char* argv[]) {
   json configDocument;
@@ -34,9 +39,34 @@ int main(int argc, const char* argv[]) {
   bot.on_log(dpp::utility::cout_logger());
 
   bot.on_voice_track_marker([&](const dpp::voice_track_marker_t& ev) {
-    std::string song = ev.track_meta;
+    bot.log(dpp::loglevel::ll_debug, "on_voice_track_marker");
 
-    current_song = song;
+    auto v = ev.voice_client;
+
+    /* If the voice channel was invalid, or there is an issue with it, then
+     * tell the user. */
+    if (!v || !v->is_ready()) {
+      bot.log(dpp::loglevel::ll_error, "Connection Error. clearing queue..");
+      currentSong.clear();
+      pcmQueue.clear();
+      return;
+    }
+
+    currentSong = ev.track_meta;
+
+    if (pcmQueue.size() > 0) {
+      std::vector<uint8_t> pcmData = pcmQueue.back();
+      pcmQueue.pop_back();
+      bot.log(dpp::loglevel::ll_debug, "right before send_audio_raw!");
+      v->send_audio_raw((uint16_t*)pcmData.data(), pcmData.size());
+      return;
+
+    } else {
+      bot.log(dpp::loglevel::ll_error, "Error dequeing song. clearing queue..");
+      currentSong.clear();
+      pcmQueue.clear();
+      return;
+    }
   });
 
   bot.on_slashcommand([&](const dpp::slashcommand_t& event) {
@@ -83,7 +113,7 @@ int main(int argc, const char* argv[]) {
           v->voiceclient->get_tracks_remaining() > 0) {
         event.reply(dpp::message(
             event.command.channel_id,
-            createEmbed(mType::GOOD, "⏯️ Currently playing: " + current_song)));
+            createEmbed(mType::GOOD, "⏯️ Currently playing: " + currentSong)));
         return;
 
       } else {
@@ -103,7 +133,7 @@ int main(int argc, const char* argv[]) {
           v->voiceclient->get_tracks_remaining() > 1) {
         event.reply(dpp::message(
             event.command.channel_id,
-            createEmbed(mType::GOOD, "⏯️ Currently playing: " + current_song)));
+            createEmbed(mType::GOOD, "⏯️ Currently playing: " + currentSong)));
         v->voiceclient->skip_to_next_marker();
         return;
 
@@ -174,14 +204,19 @@ int main(int argc, const char* argv[]) {
       const std::string link =
           std::get<std::string>(event.get_parameter("link"));
 
-      std::string fileName = downloadSong(link);
-      std::vector<uint8_t> pcmdata = encodeSong("music/" + fileName);
+      const std::string fileName = downloadSong(link);
+      const std::vector<uint8_t> pcmData = encodeSong("music/" + fileName);
+      bot.log(dpp::loglevel::ll_debug,
+              "past pcm data. size = " + std::to_string(pcmData.size()));
+      pcmQueue.emplace_back(pcmData);
 
+      bot.log(dpp::loglevel::ll_debug,
+              "pcmQueue size = " + std::to_string(pcmQueue.size()));
       v->voiceclient->insert_marker(fileName);
-      v->voiceclient->send_audio_raw((uint16_t*)pcmdata.data(), pcmdata.size());
 
-      event.reply(dpp::message(event.command.channel_id,
-                               createEmbed(mType::GOOD, "🔈 Playing!")));
+      event.reply(
+          dpp::message(event.command.channel_id,
+                       createEmbed(mType::GOOD, "🔈 Enqueued: " + fileName)));
       return;
 
       ////////////////////////////////////////////////////////////////////////////////////////////
