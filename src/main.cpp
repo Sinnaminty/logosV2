@@ -5,6 +5,7 @@
 #include <dpp/misc-enum.h>
 #include <dpp/queues.h>
 
+#include <dpp/restresults.h>
 #include <out123.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -31,6 +32,7 @@ int main(int argc, const char* argv[]) {
 
   dpp::snowflake ydsGuildId(configDocument["yds-guild-id"]);
   dpp::snowflake bosGuildId(configDocument["bos-guild-id"]);
+  dpp::snowflake watGuildId(configDocument["wat-guild-id"]);
 
   dpp::cluster bot(configDocument["token"], dpp::i_default_intents |
                                                 dpp::i_guild_members |
@@ -186,13 +188,17 @@ int main(int argc, const char* argv[]) {
       ////////////////////////////////////////////////////////////////////////////////////////////
 
     } else if (event.command.get_command_name() == "play") {
+      event.thinking(false, [&](const dpp::confirmation_callback_t& callback) {
+
+      });
+
       /* Get the voice channel the bot is in, in this current guild. */
       dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
 
       /* If the voice channel was invalid, or there is an issue with it, then
        * tell the user. */
       if (!v || !v->voiceclient || !v->voiceclient->is_ready()) {
-        event.reply(dpp::message(
+        event.edit_original_response(dpp::message(
             event.command.channel_id,
             createEmbed(mType::BAD,
                         "🔇 There was an issue with getting the voice channel. "
@@ -202,7 +208,6 @@ int main(int argc, const char* argv[]) {
 
       const std::string link =
           std::get<std::string>(event.get_parameter("link"));
-
       const std::string fileName = downloadSong(link);
       const std::vector<uint8_t> pcmData = encodeSong("music/" + fileName);
       bot.log(dpp::loglevel::ll_debug,
@@ -213,9 +218,10 @@ int main(int argc, const char* argv[]) {
               "pcmQueue size = " + std::to_string(pcmQueue.size()));
       v->voiceclient->insert_marker(fileName);
 
-      event.reply(
+      event.edit_original_response(
           dpp::message(event.command.channel_id,
                        createEmbed(mType::GOOD, "🔈 Enqueued: " + fileName)));
+
       return;
 
       ////////////////////////////////////////////////////////////////////////////////////////////
@@ -237,7 +243,9 @@ int main(int argc, const char* argv[]) {
 
       /* If the track is playing
        * pause. */
-      if (v->voiceclient->is_playing()) {
+      bot.log(dpp::loglevel::ll_debug,
+              "is_playing = " + std::to_string(v->voiceclient->is_playing()));
+      if (!v->voiceclient->is_paused()) {
         v->voiceclient->pause_audio(true);
         event.reply(dpp::message(
             event.command.channel_id,
@@ -320,10 +328,10 @@ int main(int argc, const char* argv[]) {
     }
   });
 
-  bot.on_ready([&bot, &ydsGuildId](const dpp::ready_t& event) -> void {
+  bot.on_ready([&](const dpp::ready_t& event) -> void {
     if (dpp::run_once<struct clear_bot_commands>()) {
       // bot.global_bulk_command_delete();
-      bot.guild_bulk_command_delete(ydsGuildId);
+      bot.guild_bulk_command_delete(watGuildId);
     }
 
     if (dpp::run_once<struct register_bot_commands>()) {
@@ -332,6 +340,9 @@ int main(int argc, const char* argv[]) {
       dpp::slashcommand np("np", "Show currently playing song.", bot.me.id);
       dpp::slashcommand skip("skip", "Skip to the next song in queue.",
                              bot.me.id);
+      dpp::slashcommand pause(
+          "pause", "Stop playing, clear queue and leave voice channel.",
+          bot.me.id);
       dpp::slashcommand stop(
           "stop", "Stop playing, clear queue and leave voice channel.",
           bot.me.id);
@@ -348,9 +359,9 @@ int main(int argc, const char* argv[]) {
       //       bot.me.id );
 
       const std::vector<dpp::slashcommand> commands = {
-          join, queue, np, skip, stop, play, warfstatus};
-      bot.guild_bulk_command_create(commands, ydsGuildId);
-      std::cout << "Bot Ready!\n";
+          join, queue, np, skip, pause, stop, play, warfstatus};
+      bot.guild_bulk_command_create(commands, watGuildId);
+      bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
     }
   });
 
