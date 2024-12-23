@@ -57,7 +57,6 @@ int main(int argc, const char* argv[]) {
     if (pcmQueue.size() > 0) {
       std::vector<uint8_t> pcmData = pcmQueue.back();
       pcmQueue.pop_back();
-      bot.log(dpp::loglevel::ll_debug, "right before send_audio_raw!");
       v->send_audio_raw((uint16_t*)pcmData.data(), pcmData.size());
       return;
 
@@ -160,7 +159,7 @@ int main(int argc, const char* argv[]) {
       } else {
         event.reply(dpp::message(
             event.command.channel_id,
-            createEmbed(mType::BAD, "⚠️I'm not in a voice channel, dork.")));
+            createEmbed(mType::BAD, "⚠️ I'm not in a voice channel, dork.")));
         return;
       }
 
@@ -218,6 +217,40 @@ int main(int argc, const char* argv[]) {
           dpp::message(event.command.channel_id,
                        createEmbed(mType::GOOD, "🔈 Enqueued: " + fileName)));
       return;
+
+      ////////////////////////////////////////////////////////////////////////////////////////////
+
+    } else if (event.command.get_command_name() == "pause") {
+      /* Get the voice channel the bot is in, in this current guild. */
+      dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
+
+      /* If the voice channel was invalid, or there is an issue with it, then
+       * tell the user. */
+      if (!v || !v->voiceclient || !v->voiceclient->is_ready()) {
+        event.reply(dpp::message(
+            event.command.channel_id,
+            createEmbed(mType::BAD,
+                        "🔇 There was an issue with getting the voice channel. "
+                        "Make sure I'm in a voice channel! :(")));
+        return;
+      }
+
+      /* If the track is playing
+       * pause. */
+      if (v->voiceclient->is_playing()) {
+        v->voiceclient->pause_audio(true);
+        event.reply(dpp::message(
+            event.command.channel_id,
+            createEmbed(mType::GOOD, "⏯️ Pausing track: " + currentSong)));
+        return;
+
+      } else {
+        v->voiceclient->pause_audio(false);
+        event.reply(dpp::message(
+            event.command.channel_id,
+            createEmbed(mType::GOOD, "⏯️ Unpausing track: " + currentSong)));
+        return;
+      }
 
       ////////////////////////////////////////////////////////////////////////////////////////////
 
