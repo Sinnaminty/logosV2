@@ -10,24 +10,29 @@ RUN apt-get update && apt-get install -y \
     g++ \
     git \
     build-essential \
-    libssl-dev \
-    libwebsocketpp-dev \
-    libboost-system-dev \
-    libboost-thread-dev \
-    libboost-chrono-dev \
-    libboost-regex-dev \
+    libasound2-dev \
+    libpulse-dev \
+    libgtk2.0-dev \
     libssl-dev \
     libopus-dev \
     libogg-dev \
     libmpg123-dev \
     libfmt-dev \
+    unzip \
     ffmpeg \
     curl \
     wget \
+    autoconf \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && wget -O dpp.deb https://dl.dpp.dev/ \
-    && dpkg -i dpp.deb 
+    && dpkg -i dpp.deb \
+    && git clone https://github.com/dectalk/dectalk.git \
+    && cd dectalk/src \
+    && autoreconf -si \
+    && ./configure \
+    && make -j \
+    && make install 
     
 
 # Copy your bot source code into the container

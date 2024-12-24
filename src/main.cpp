@@ -1,3 +1,4 @@
+#include <dpp/appcommand.h>
 #include <dpp/cache.h>
 #include <dpp/channel.h>
 #include <dpp/dpp.h>
@@ -7,12 +8,15 @@
 
 #include <dpp/restresults.h>
 #include <dpp/snowflake.h>
+#include <dpp/utility.h>
 #include <out123.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <cstdint>
+#include <exception>
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -32,8 +36,8 @@ int main(int argc, const char* argv[]) {
   configFile >> configDocument;
 
   dpp::snowflake ydsGuildId(configDocument["yds-guild-id"]);
-  dpp::snowflake bosGuildId(configDocument["bos-guild-id"]);
   dpp::snowflake watGuildId(configDocument["wat-guild-id"]);
+  dpp::snowflake tvvGuildId(configDocument["tvv-guild-id"]);
 
   dpp::cluster bot(configDocument["token"], dpp::i_default_intents |
                                                 dpp::i_guild_members |
@@ -264,18 +268,22 @@ int main(int argc, const char* argv[]) {
       ////////////////////////////////////////////////////////////////////////////////////////////
 
     } else if (event.command.get_command_name() == "warfstatus") {
-      bot.request("https://api.warframestat.us/pc/", dpp::m_get,
-                  [](const dpp::http_request_completion_t& cc) {
-                    // This callback is called when the HTTP request
-                    // completes. See documentation of
-                    // dpp::http_request_completion_t for information
-                    // on the fields in the parameter.
-                    std::cout << "I got reply: " << cc.body
-                              << " with HTTP status code: " << cc.status
-                              << "\n";
-                  },
-                  "", "application/json", {});
-      event.reply("check console!");
+      event.reply(
+          dpp::message(event.command.channel_id,
+                       createEmbed(mType::BAD, "Not Yet Implemented!")));
+      return;
+      // bot.request("https://api.warframestat.us/pc/", dpp::m_get,
+      //             [](const dpp::http_request_completion_t& cc) {
+      //               // This callback is called when the HTTP request
+      //               // completes. See documentation of
+      //               // dpp::http_request_completion_t for information
+      //               // on the fields in the parameter.
+      //               std::cout << "I got reply: " << cc.body
+      //                         << " with HTTP status code: " << cc.status
+      //                         << "\n";
+      //             },
+      //             "", "application/json", {});
+      // event.reply("check console!");
 
       ////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -285,7 +293,7 @@ int main(int argc, const char* argv[]) {
       /* Send a message to the user set above. */
       bot.direct_message_create(
           user, dpp::message("rizz."),
-          [event, user](const dpp::confirmation_callback_t& callback) {
+          [&](const dpp::confirmation_callback_t& callback) {
             /* If the callback errors, we want to send a message telling the
              * author that something went wrong. */
 
@@ -293,17 +301,105 @@ int main(int argc, const char* argv[]) {
               /* Here, we want the error message to be different if the user
                * we're trying to send a message to is the command author. */
 
-              event.reply(dpp::message("I couldn't send you a message.")
+              bot.log(dpp::loglevel::ll_error,
+                      callback.get_error().human_readable);
+
+              event.reply(dpp::message(event.command.channel_id,
+                                       createEmbed(mType::BAD,
+                                                   "I couldn't rizz you up..."))
                               .set_flags(dpp::m_ephemeral));
 
               return;
             }
-
-            /* We do the same here, so the message is different if it's to the
-             * command author or if it's to a specified user. */
-            event.reply(dpp::message("I've sent you a private message.")
-                            .set_flags(dpp::m_ephemeral));
           });
+
+      ////////////////////////////////////////////////////////////////////////////////////////////
+
+    } else if (event.command.get_command_name() == "roll") {
+      try {
+        std::string roll = std::get<std::string>(event.get_parameter("roll"));
+        std::string resp;
+        auto diceVec = parseDiceString(roll);
+        for (Dice d : diceVec) {
+          resp += "**" + std::to_string(d.m_num) + "d" +
+                  std::to_string(d.m_side) + "**: " + d.roll() + "\n";
+        }
+
+        event.reply(dpp::message(event.command.channel_id,
+                                 createEmbed(mType::GOOD, resp)));
+        return;
+
+      } catch (std::invalid_argument& e) {
+        event.reply(dpp::message(event.command.channel_id,
+                                 createEmbed(mType::BAD, e.what())));
+
+        return;
+      }
+
+    } else if (event.command.get_command_name() == "say") {
+      event.thinking(false, [&](const dpp::confirmation_callback_t& callback) {
+
+      });
+      bool dl = false;
+      try {
+        dl = std::get<bool>(event.get_parameter("dl"));
+      } catch (const std::exception& e) {
+        bot.log(dpp::loglevel::ll_error, e.what());
+      }
+
+      const std::string sayString =
+          std::get<std::string>(event.get_parameter("text"));
+
+      if (!dl) {
+        /* Get the voice channel the bot is in, in this current guild. */
+        dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
+        /* If the voice channel was invalid, or there is an issue with it, then
+         * tell the user. */
+        if (!v || !v->voiceclient || !v->voiceclient->is_ready()) {
+          event.edit_original_response(dpp::message(
+              event.command.channel_id,
+              createEmbed(
+                  mType::BAD,
+                  "🔇 There was an issue with getting the voice channel. "
+                  "Make sure I'm in a voice channel! :(")));
+          return;
+        }
+
+        try {
+          const std::vector<uint8_t> pcmData = encodeSay(sayString);
+
+          v->voiceclient->send_audio_raw((uint16_t*)pcmData.data(),
+                                         pcmData.size());
+          event.edit_original_response(
+              dpp::message(event.command.channel_id,
+                           createEmbed(mType::GOOD, "🔈 Speaking! ")));
+
+          return;
+
+        } catch (std::exception& e) {
+          bot.log(dpp::loglevel::ll_error, e.what());
+          event.edit_original_response(dpp::message(
+              event.command.channel_id,
+              createEmbed(mType::BAD, "Something went wrong! Soz;;")));
+          return;
+        }
+
+        // if we are downloading...
+      } else {
+        try {
+          dpp::message msg(event.command.channel_id, "");
+          downloadSay(sayString);
+          msg.add_file("say.mp3", dpp::utility::read_file("say.mp3"));
+          event.edit_original_response(msg);
+          return;
+
+        } catch (std::exception& e) {
+          event.edit_original_response(dpp::message(
+              event.command.channel_id, createEmbed(mType::BAD, e.what())));
+
+          return;
+        }
+      }
 
       ////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -360,7 +456,9 @@ int main(int argc, const char* argv[]) {
   bot.on_ready([&](const dpp::ready_t& event) -> void {
     if (dpp::run_once<struct clear_bot_commands>()) {
       // bot.global_bulk_command_delete();
+      bot.guild_bulk_command_delete(ydsGuildId);
       bot.guild_bulk_command_delete(watGuildId);
+      bot.guild_bulk_command_delete(tvvGuildId);
     }
 
     if (dpp::run_once<struct register_bot_commands>()) {
@@ -374,12 +472,27 @@ int main(int argc, const char* argv[]) {
       dpp::slashcommand stop(
           "stop", "Stop playing, clear queue and leave voice channel.",
           bot.me.id);
+
       dpp::slashcommand play("play", "Play a song.", bot.me.id);
       play.add_option((dpp::command_option(dpp::co_string, "link",
                                            "The link to the song.", true)));
 
       // other commands
       dpp::slashcommand rizzmeup("rizzmeup", "delta sigma alpha.", bot.me.id);
+
+      dpp::slashcommand roll(
+          "roll", "Roll any specified number of x sided die.", bot.me.id);
+      roll.add_option(dpp::command_option(
+          dpp::co_string, "roll", "Roll String (ex. '1d20 2d10 3d6')", true));
+
+      dpp::slashcommand say("say", "Make me speak.(Moon Base Alpha friendly.)",
+                            bot.me.id);
+      say.add_option((dpp::command_option(dpp::co_string, "text",
+                                          "What I should say.", true)));
+      say.add_option((dpp::command_option(
+          dpp::co_boolean, "dl",
+          "Download this file and send it to the channel?", false)));
+
       dpp::slashcommand warfstatus(
           "warfstatus", "Get World State Data from Warframe.", bot.me.id);
 
@@ -389,8 +502,12 @@ int main(int argc, const char* argv[]) {
       //       bot.me.id );
 
       const std::vector<dpp::slashcommand> commands = {
-          join, queue, np, skip, pause, stop, play, rizzmeup, warfstatus};
+          join, queue,    np,   skip, pause,     stop,
+          play, rizzmeup, roll, say,  warfstatus};
+      bot.guild_bulk_command_create(commands, ydsGuildId);
       bot.guild_bulk_command_create(commands, watGuildId);
+      bot.guild_bulk_command_create(commands, tvvGuildId);
+
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
     }
   });

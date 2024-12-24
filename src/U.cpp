@@ -4,7 +4,9 @@
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
+#include <regex>
 #include <string>
+#include <vector>
 
 namespace U {
 
@@ -32,7 +34,7 @@ dpp::embed createEmbed(const mType& mType, const std::string& m) {
   }
 }
 
-std::vector<uint8_t> encodeSong(std::string file) {
+std::vector<uint8_t> encodeSong(const std::string& file) {
   std::vector<uint8_t> pcmdata;
 
   mpg123_init();
@@ -67,6 +69,43 @@ std::vector<uint8_t> encodeSong(std::string file) {
   mpg123_delete(mh);
   mpg123_exit();
   return pcmdata;
+}
+
+void downloadSay(const std::string& text) {
+  if (std::filesystem::exists("say.wav")) {
+    std::filesystem::remove("say.wav");
+  }
+  if (std::filesystem::exists("say.mp3")) {
+    std::filesystem::remove("say.mp3");
+  }
+
+  std::string command = "say -pre \"[:phoneme on] \" -e 1 -fo say.wav -a \"";
+  command += text + "\"";
+
+  int retCode = std::system(command.c_str());
+  if (retCode != 0) {
+    throw std::runtime_error("Error: Failed to generate text.");
+  }
+
+  // say.wav now in project dir.
+
+  command.clear();
+  command =
+      "ffmpeg -f wav -i say.wav -ar 48000 -ac 2 "
+      "say.mp3";
+  retCode = std::system(command.c_str());
+  if (retCode != 0) {
+    throw std::runtime_error("Error: ffmpeg error.");
+  }
+}
+
+std::vector<uint8_t> encodeSay(const std::string& text) {
+  downloadSay(text);
+
+  // output.mp3 now in project dir.
+  auto ret = encodeSong("say.mp3");
+
+  return ret;
 }
 
 std::string downloadSong(const std::string& link) {
@@ -111,5 +150,36 @@ std::string downloadSong(const std::string& link) {
 
 void archiveChannel(const std::string& channelName,
                     const dpp::cache<dpp::message>& cache) {}
+
+std::string Dice::roll() {
+  srand((unsigned)time(NULL));
+  std::string retString;
+
+  for (int i = 0; i < this->m_num; i++) {
+    retString += std::to_string(1 + (rand() % this->m_side)) + " ";
+  }
+  return retString;
+}
+
+std::vector<Dice> parseDiceString(const std::string& s) {
+  std::vector<Dice> diceList;
+  std::regex diceRegex(R"((\d+)d(\d+))");
+  std::sregex_iterator begin(s.begin(), s.end(), diceRegex);
+  std::sregex_iterator end;
+
+  for (auto it = begin; it != end; ++it) {
+    int num = std::stoi((*it)[1].str());
+    int sides = std::stoi((*it)[2].str());
+
+    if (num <= 0 || sides <= 0) {
+      throw std::invalid_argument(
+          "Dice must have positive numbers for quantity and sides.");
+    }
+
+    diceList.push_back({num, sides});
+  }
+
+  return diceList;
+}
 
 }  // namespace U

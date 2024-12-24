@@ -2,4 +2,5 @@ build/
 json/
 music/
 .cache/
-
+*.mp3
+*.wav
