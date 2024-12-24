@@ -6,6 +6,7 @@
 #include <dpp/queues.h>
 
 #include <dpp/restresults.h>
+#include <dpp/snowflake.h>
 #include <out123.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -278,6 +279,34 @@ int main(int argc, const char* argv[]) {
 
       ////////////////////////////////////////////////////////////////////////////////////////////
 
+    } else if (event.command.get_command_name() == "rizzmeup") {
+      dpp::snowflake user = event.command.get_issuing_user().id;
+
+      /* Send a message to the user set above. */
+      bot.direct_message_create(
+          user, dpp::message("rizz."),
+          [event, user](const dpp::confirmation_callback_t& callback) {
+            /* If the callback errors, we want to send a message telling the
+             * author that something went wrong. */
+
+            if (callback.is_error()) {
+              /* Here, we want the error message to be different if the user
+               * we're trying to send a message to is the command author. */
+
+              event.reply(dpp::message("I couldn't send you a message.")
+                              .set_flags(dpp::m_ephemeral));
+
+              return;
+            }
+
+            /* We do the same here, so the message is different if it's to the
+             * command author or if it's to a specified user. */
+            event.reply(dpp::message("I've sent you a private message.")
+                            .set_flags(dpp::m_ephemeral));
+          });
+
+      ////////////////////////////////////////////////////////////////////////////////////////////
+
     } else if (event.command.get_command_name() == "archive") {
       dpp::snowflake guild_id = event.command.guild_id;
 
@@ -335,14 +364,13 @@ int main(int argc, const char* argv[]) {
     }
 
     if (dpp::run_once<struct register_bot_commands>()) {
+      // radio commands
       dpp::slashcommand join("join", "Joins the user's vc.", bot.me.id);
       dpp::slashcommand queue("queue", "Show music queue.", bot.me.id);
       dpp::slashcommand np("np", "Show currently playing song.", bot.me.id);
       dpp::slashcommand skip("skip", "Skip to the next song in queue.",
                              bot.me.id);
-      dpp::slashcommand pause(
-          "pause", "Stop playing, clear queue and leave voice channel.",
-          bot.me.id);
+      dpp::slashcommand pause("pause", "Toggle pause the music.", bot.me.id);
       dpp::slashcommand stop(
           "stop", "Stop playing, clear queue and leave voice channel.",
           bot.me.id);
@@ -350,6 +378,8 @@ int main(int argc, const char* argv[]) {
       play.add_option((dpp::command_option(dpp::co_string, "link",
                                            "The link to the song.", true)));
 
+      // other commands
+      dpp::slashcommand rizzmeup("rizzmeup", "delta sigma alpha.", bot.me.id);
       dpp::slashcommand warfstatus(
           "warfstatus", "Get World State Data from Warframe.", bot.me.id);
 
@@ -359,7 +389,7 @@ int main(int argc, const char* argv[]) {
       //       bot.me.id );
 
       const std::vector<dpp::slashcommand> commands = {
-          join, queue, np, skip, pause, stop, play, warfstatus};
+          join, queue, np, skip, pause, stop, play, rizzmeup, warfstatus};
       bot.guild_bulk_command_create(commands, watGuildId);
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
     }
