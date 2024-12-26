@@ -33,11 +33,15 @@ std::string currentSong;
 int main(int argc, const char* argv[]) {
   json configDocument;
   std::ifstream configFile("json/config.json");
+
+  std::ifstream s("json/s.json");
   configFile >> configDocument;
 
-  dpp::snowflake ydsGuildId(configDocument["yds-guild-id"]);
-  dpp::snowflake watGuildId(configDocument["wat-guild-id"]);
-  dpp::snowflake tvvGuildId(configDocument["tvv-guild-id"]);
+  dpp::snowflake tnbGuildId(configDocument["tnb-guild-id"]);
+
+  // dpp::snowflake ydsGuildId(configDocument["yds-guild-id"]);
+  //  dpp::snowflake watGuildId(configDocument["wat-guild-id"]);
+  //  dpp::snowflake tvvGuildId(configDocument["tvv-guild-id"]);
 
   dpp::cluster bot(configDocument["token"], dpp::i_default_intents |
                                                 dpp::i_guild_members |
@@ -457,8 +461,8 @@ int main(int argc, const char* argv[]) {
     if (dpp::run_once<struct clear_bot_commands>()) {
       // bot.global_bulk_command_delete();
       bot.guild_bulk_command_delete(ydsGuildId);
-      bot.guild_bulk_command_delete(watGuildId);
-      bot.guild_bulk_command_delete(tvvGuildId);
+      // bot.guild_bulk_command_delete(watGuildId);
+      // bot.guild_bulk_command_delete(tvvGuildId);
     }
 
     if (dpp::run_once<struct register_bot_commands>()) {
@@ -505,8 +509,8 @@ int main(int argc, const char* argv[]) {
           join, queue,    np,   skip, pause,     stop,
           play, rizzmeup, roll, say,  warfstatus};
       bot.guild_bulk_command_create(commands, ydsGuildId);
-      bot.guild_bulk_command_create(commands, watGuildId);
-      bot.guild_bulk_command_create(commands, tvvGuildId);
+      // bot.guild_bulk_command_create(commands, watGuildId);
+      // bot.guild_bulk_command_create(commands, tvvGuildId);
 
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
     }

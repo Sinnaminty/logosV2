@@ -1,6 +1,8 @@
 build/
-json/
 music/
 .cache/
+
+json/s.json
+
 *.mp3
 *.wav
