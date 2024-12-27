@@ -32,20 +32,22 @@ std::string currentSong;
 
 int main(int argc, const char* argv[]) {
   json configDocument;
+  json sDocument;
   std::ifstream configFile("json/config.json");
 
   std::ifstream s("json/s.json");
-  configFile >> configDocument;
 
+  configFile >> configDocument;
+  s >> sDocument;
+
+  dpp::snowflake ydsGuildId(configDocument["yds-guild-id"]);
+  dpp::snowflake watGuildId(configDocument["wat-guild-id"]);
+  dpp::snowflake tvvGuildId(configDocument["tvv-guild-id"]);
   dpp::snowflake tnbGuildId(configDocument["tnb-guild-id"]);
 
-  // dpp::snowflake ydsGuildId(configDocument["yds-guild-id"]);
-  //  dpp::snowflake watGuildId(configDocument["wat-guild-id"]);
-  //  dpp::snowflake tvvGuildId(configDocument["tvv-guild-id"]);
-
-  dpp::cluster bot(configDocument["token"], dpp::i_default_intents |
-                                                dpp::i_guild_members |
-                                                dpp::i_message_content);
+  dpp::cluster bot(sDocument["token"], dpp::i_default_intents |
+                                           dpp::i_guild_members |
+                                           dpp::i_message_content);
 
   bot.on_log(dpp::utility::cout_logger());
 
@@ -459,10 +461,10 @@ int main(int argc, const char* argv[]) {
 
   bot.on_ready([&](const dpp::ready_t& event) -> void {
     if (dpp::run_once<struct clear_bot_commands>()) {
-      // bot.global_bulk_command_delete();
-      bot.guild_bulk_command_delete(ydsGuildId);
+      // bot.guild_bulk_command_delete(ydsGuildId);
       // bot.guild_bulk_command_delete(watGuildId);
       // bot.guild_bulk_command_delete(tvvGuildId);
+      bot.guild_bulk_command_delete(tnbGuildId);
     }
 
     if (dpp::run_once<struct register_bot_commands>()) {
@@ -508,9 +510,12 @@ int main(int argc, const char* argv[]) {
       const std::vector<dpp::slashcommand> commands = {
           join, queue,    np,   skip, pause,     stop,
           play, rizzmeup, roll, say,  warfstatus};
-      bot.guild_bulk_command_create(commands, ydsGuildId);
+
+      // bot.guild_bulk_command_create(commands, ydsGuildId);
       // bot.guild_bulk_command_create(commands, watGuildId);
       // bot.guild_bulk_command_create(commands, tvvGuildId);
+
+      bot.guild_bulk_command_create(commands, tnbGuildId);
 
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
     }
