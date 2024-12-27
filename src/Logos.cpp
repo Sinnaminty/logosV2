@@ -1,12 +1,6 @@
 #include <Logos/Logos.h>
-#include <dpp/colors.h>
 #include <mpg123.h>
-#include <chrono>
-#include <cstdlib>
-#include <filesystem>
 #include <regex>
-#include <string>
-#include <vector>
 
 namespace Logos {
 

@@ -1,32 +1,9 @@
-#include <dpp/appcommand.h>
-#include <dpp/cache.h>
-#include <dpp/channel.h>
-#include <dpp/dpp.h>
-#include <dpp/guild.h>
-#include <dpp/message.h>
-#include <dpp/misc-enum.h>
-#include <dpp/queues.h>
-
-#include <dpp/restresults.h>
-#include <dpp/snowflake.h>
-#include <dpp/user.h>
-#include <dpp/utility.h>
-#include <out123.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <cstdint>
-#include <cstdio>
-#include <exception>
-#include <fstream>
-#include <map>
-#include <stdexcept>
-#include <string>
-#include <vector>
-
 // #include <liboai.h>
-#include <dpp/nlohmann/json.hpp>
-
 #include <Logos/Logos.h>
+#include <dpp/cache.h>
+#include <dpp/dispatcher.h>
+#include <dpp/message.h>
+#include <dpp/restresults.h>
 
 using json = nlohmann::json;
 using namespace Logos;
@@ -40,11 +17,6 @@ int main(int argc, const char* argv[]) {
 
   configFile >> configDocument;
   s >> sDocument;
-
-  // dpp::snowflake ydsGuildId(configDocument["yds-guild-id"]);
-  // dpp::snowflake watGuildId(configDocument["wat-guild-id"]);
-  dpp::snowflake tvvGuildId(configDocument["tvv-guild-id"]);
-  // dpp::snowflake tnbGuildId(configDocument["tnb-guild-id"]);
 
   dpp::cluster bot(sDocument["bot-token"], dpp::i_default_intents |
                                                dpp::i_guild_members |
@@ -439,16 +411,36 @@ int main(int argc, const char* argv[]) {
         }
       }
 
-      ////////////////////////////////////////////////////////////////////////////////////////////
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////
+
+    else if (event.command.get_command_name() == "clearLocalCommands") {
+      bot.guild_bulk_command_delete(
+          event.command.get_guild().id,
+          [&](const dpp::confirmation_callback_t& callback) {
+            if (callback.is_error()) {
+              event.reply(dpp::message(
+                  event.command.channel_id,
+                  createEmbed(mType::BAD,
+                              callback.get_error().human_readable)));
+
+            } else {
+              event.reply(dpp::message(
+                  event.command.channel_id,
+                  createEmbed(
+                      mType::GOOD,
+                      "Deleted commands for Guild: " +
+                          dpp::find_guild(event.command.guild_id)->name)));
+            }
+          });
     }
   });
 
+  ////////////////////////////////////////////////////////////////////////////////////////////
+
   bot.on_ready([&](const dpp::ready_t& event) -> void {
     if (dpp::run_once<struct clear_bot_commands>()) {
-      // bot.guild_bulk_command_delete(ydsGuildId);
-      // bot.guild_bulk_command_delete(watGuildId);
-      bot.guild_bulk_command_delete(tvvGuildId);
-      // bot.guild_bulk_command_delete(tnbGuildId);
     }
 
     if (dpp::run_once<struct register_bot_commands>()) {
@@ -512,13 +504,25 @@ int main(int argc, const char* argv[]) {
 
       /////////////////////////////////////////////////////////////////////////////////////////////////
 
-      const std::vector<dpp::slashcommand> commands = {
-          join, queue, np, skip, pause, stop, play, roll, say, transcribe};
+      dpp::slashcommand clearLocalCommands(
+          "clearLocalCommands", "Clears local commands in this guild",
+          bot.me.id);
 
-      // bot.guild_bulk_command_create(commands, ydsGuildId);
-      // bot.guild_bulk_command_create(commands, watGuildId);
-      bot.guild_bulk_command_create(commands, tvvGuildId);
-      // bot.guild_bulk_command_create(commands, tnbGuildId);
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+
+      const std::vector<dpp::slashcommand> commands = {join,
+                                                       queue,
+                                                       np,
+                                                       skip,
+                                                       pause,
+                                                       stop,
+                                                       play,
+                                                       roll,
+                                                       say,
+                                                       transcribe,
+                                                       clearLocalCommands};
+
+      bot.global_bulk_command_create(commands);
 
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
     }
