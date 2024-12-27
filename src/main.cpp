@@ -4,6 +4,7 @@
 #include <dpp/dispatcher.h>
 #include <dpp/message.h>
 #include <dpp/restresults.h>
+#include <dpp/snowflake.h>
 
 using json = nlohmann::json;
 using namespace Logos;
@@ -11,16 +12,18 @@ using namespace Logos;
 int main(int argc, const char* argv[]) {
   json configDocument;
   json sDocument;
-  std::ifstream configFile("json/config.json");
 
+  std::ifstream configFile("json/config.json");
   std::ifstream s("json/s.json");
 
   configFile >> configDocument;
   s >> sDocument;
 
-  dpp::cluster bot(sDocument["bot-token"], dpp::i_default_intents |
-                                               dpp::i_guild_members |
-                                               dpp::i_message_content);
+  dpp::snowflake ydsGuild(configDocument["yds-guild-id"]);
+
+  dpp::cluster bot(sDocument["test-bot-token"], dpp::i_default_intents |
+                                                    dpp::i_guild_members |
+                                                    dpp::i_message_content);
 
   bot.on_log(dpp::utility::cout_logger());
 
@@ -441,6 +444,7 @@ int main(int argc, const char* argv[]) {
 
   bot.on_ready([&](const dpp::ready_t& event) -> void {
     if (dpp::run_once<struct clear_bot_commands>()) {
+      bot.guild_bulk_command_delete(ydsGuild);
     }
 
     if (dpp::run_once<struct register_bot_commands>()) {
@@ -522,7 +526,7 @@ int main(int argc, const char* argv[]) {
                                                        transcribe,
                                                        clearLocalCommands};
 
-      bot.global_bulk_command_create(commands);
+      bot.guild_bulk_command_create(commands, ydsGuild);
 
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
     }
