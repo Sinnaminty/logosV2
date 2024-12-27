@@ -1,10 +1,14 @@
 // #include <liboai.h>
 #include <Logos/Logos.h>
+#include <dpp/appcommand.h>
 #include <dpp/cache.h>
 #include <dpp/dispatcher.h>
 #include <dpp/message.h>
 #include <dpp/restresults.h>
 #include <dpp/snowflake.h>
+#include <exception>
+#include <stdexcept>
+#include <string>
 
 using json = nlohmann::json;
 using namespace Logos;
@@ -414,11 +418,42 @@ int main(int argc, const char* argv[]) {
         }
       }
 
-    }
+    } else if (event.command.get_command_name() == "schedule") {
+      std::string eventString;
+      try {
+        eventString = std::get<std::string>(event.get_parameter("add"));
+      } catch (...) {
+      }
 
-    ////////////////////////////////////////////////////////////////////////////////////////////
+      const dpp::snowflake userId = event.command.get_issuing_user().id;
 
-    else if (event.command.get_command_name() == "clearLocalCommands") {
+      if (!eventString.empty()) {
+        try {
+          scheduleAdd(userId, eventString);
+
+        } catch (const std::exception& e) {
+          event.reply(dpp::message(event.command.channel_id,
+                                   createEmbed(mType::BAD, e.what())));
+          return;
+        }
+      }
+
+      try {
+        std::string resp = scheduleShow(userId);
+
+        event.reply(dpp::message(event.command.channel_id,
+                                 createEmbed(mType::GOOD, resp)));
+        return;
+
+      } catch (const std::exception& e) {
+        event.reply(dpp::message(event.command.channel_id,
+                                 createEmbed(mType::BAD, e.what())));
+        return;
+      }
+
+      ////////////////////////////////////////////////////////////////////////////////////////////
+
+    } else if (event.command.get_command_name() == "clear") {
       bot.guild_bulk_command_delete(
           event.command.get_guild().id,
           [&](const dpp::confirmation_callback_t& callback) {
@@ -508,23 +543,20 @@ int main(int argc, const char* argv[]) {
 
       /////////////////////////////////////////////////////////////////////////////////////////////////
 
-      dpp::slashcommand clearLocalCommands(
-          "clearLocalCommands", "Clears local commands in this guild",
-          bot.me.id);
+      dpp::slashcommand schedule("schedule", "Show schedule.", bot.me.id);
+      schedule.add_option(dpp::command_option(
+          dpp::co_string, "add", "(name) (mm/dd/yy) (00:00)", false));
 
       /////////////////////////////////////////////////////////////////////////////////////////////////
 
-      const std::vector<dpp::slashcommand> commands = {join,
-                                                       queue,
-                                                       np,
-                                                       skip,
-                                                       pause,
-                                                       stop,
-                                                       play,
-                                                       roll,
-                                                       say,
-                                                       transcribe,
-                                                       clearLocalCommands};
+      dpp::slashcommand clear("clear", "Clears local commands in this guild",
+                              bot.me.id);
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+
+      const std::vector<dpp::slashcommand> commands = {
+          join, queue, np,  skip,       pause,    stop,
+          play, roll,  say, transcribe, schedule, clear};
 
       bot.guild_bulk_command_create(commands, ydsGuild);
 

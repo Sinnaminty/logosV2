@@ -1,6 +1,13 @@
 #include <Logos/Logos.h>
+#include <dpp/cache.h>
 #include <mpg123.h>
+#include <exception>
+#include <fstream>
+#include <nlohmann/json.hpp>
 #include <regex>
+#include <stdexcept>
+#include <string>
+using json = nlohmann::json;
 
 namespace Logos {
 
@@ -9,6 +16,33 @@ Carbon& Carbon::getInstance() {
   return instance;
 }
 
+// ScheduleEntry serialization and deserialization
+void to_json(json& j, const ScheduleEntry& entry) {
+  j = json{{"eventName", entry.m_eventName}, {"dateTime", entry.m_dateTime}};
+}
+
+void from_json(const json& j, ScheduleEntry& entry) {
+  j.at("eventName").get_to(entry.m_eventName);
+  j.at("dateTime").get_to(entry.m_dateTime);
+}
+
+// ScheduleUser serialization and deserialization
+void to_json(json& j, const ScheduleUser& user) {
+  j = json{{"events", user.m_events}};
+}
+
+void from_json(const json& j, ScheduleUser& user) {
+  j.at("events").get_to(user.m_events);
+}
+
+// Schedule serialization and deserialization
+void to_json(json& j, const Schedule& schedule) {
+  j = json(schedule.m_idUserMap);
+}
+
+void from_json(const json& j, Schedule& schedule) {
+  j.get_to(schedule.m_idUserMap);
+}
 dpp::embed createEmbed(const mType& mType, const std::string& m) {
   switch (mType) {
     case mType::GOOD: {
@@ -31,6 +65,147 @@ dpp::embed createEmbed(const mType& mType, const std::string& m) {
       break;
     }
   }
+}
+
+std::string toISO8601(const std::string& date, const std::string& time) {
+  std::ostringstream isoFormat;
+  std::istringstream dateStream(date);
+  std::istringstream timeStream(time);
+
+  int month, day, year, hour, minute, hourMinute;
+  char slash;
+
+  if (!(dateStream >> month >> slash >> day >> slash >> year) ||
+      !(timeStream >> hourMinute)) {
+    return "";  // Return empty string on failure
+  }
+
+  // Convert year to four digits
+  year += (year < 50) ? 2000 : 1900;
+
+  hour = hourMinute / 100;
+  minute = hourMinute % 100;
+  // Format as ISO 8601: YYYY-MM-DDTHH:MM
+  isoFormat << std::setfill('0') << std::setw(4) << year << "-" << std::setw(2)
+            << month << "-" << std::setw(2) << day << "T" << std::setw(2)
+            << hour << ":" << std::setw(2) << minute;
+
+  return isoFormat.str();
+}
+
+void scheduleAdd(const dpp::snowflake& userId, const std::string& eventString) {
+  // Parse input string
+  std::istringstream iss(eventString);
+  std::string eventName, date, time;
+
+  if (!(iss >> eventName >> date >> time)) {
+    throw(std::invalid_argument("Invalid input format."));
+  }
+
+  // Validate date format (mm/dd/yy)
+  if (date.size() != 8 || date[2] != '/' || date[5] != '/') {
+    throw(std::invalid_argument("Invalid date format."));
+  }
+
+  // Validate time format (24H time)
+  if (time.size() != 4) {
+    throw(std::invalid_argument("Invalid time format."));
+  }
+
+  // Convert date and time to ISO 8601 format
+  std::string isoTimestamp = toISO8601(date, time);
+  if (isoTimestamp.empty()) {
+    throw(std::runtime_error(
+        "Error converting date and time to ISO 8601 format."));
+  }
+
+  // Prepare JSON structure
+  std::ifstream inFile("json/schedule.json");
+  json schj;
+
+  // Load existing data if file exists
+  if (inFile.is_open()) {
+    try {
+      inFile >> schj;
+    } catch (const json::exception& e) {
+      std::cerr << e.what();
+    }
+    inFile.close();
+  } else {
+    // Create the file if it doesn't exist
+    std::ofstream outFile("json/schedule.json");
+    if (!outFile.is_open()) {
+      throw(std::runtime_error("Error creating schedule file."));
+    }
+    outFile.close();
+  }
+
+  // Add new event
+  ScheduleEntry newEntry{eventName, isoTimestamp};
+  if (!schj.contains(std::to_string(userId))) {
+    // If the user doesn't exist in the JSON, create their entry
+    schj[std::to_string(userId)] = ScheduleUser{{}};
+  }
+  // Update the user's events
+  auto& userJson = schj[std::to_string(userId)];
+  userJson["events"].push_back(newEntry);
+
+  // Write back to file
+  std::ofstream outFile("json/schedule.json");
+  if (!outFile.is_open()) {
+    throw(std::runtime_error("Error writing to schedule file."));
+  }
+
+  outFile << std::setw(4) << schj << std::endl;
+  std::cout << "schedule add complete!";
+  outFile.close();
+}
+
+// Function to display the schedule for a given user
+std::string scheduleShow(const dpp::snowflake& userId) {
+  std::ifstream inFile("json/schedule.json");
+  json schj;
+
+  if (!inFile.is_open()) {
+    throw(std::runtime_error("Schedule file not found."));
+  }
+
+  try {
+    inFile >> schj;
+  } catch (const std::exception& e) {
+    std::cerr << e.what();
+  }
+
+  inFile.close();
+
+  std::string username = dpp::find_user(userId)->username;
+  if (schj.find(std::to_string(userId)) == schj.end()) {
+    throw(std::runtime_error("No events found for user " + username + "."));
+  }
+
+  std::ostringstream output;
+  output << "Schedule for " << username << ":\n";
+
+  auto userSchedule = schj[std::to_string(userId)]["events"];
+  for (const auto& event : userSchedule) {
+    std::string eventName = event.value("eventName", "Unknown");
+    std::string dateTime = event.value("dateTime", "Unknown");
+
+    // Convert ISO 8601 to human-readable format
+    std::istringstream tsStream(dateTime);
+    std::tm tm = {};
+    tsStream >> std::get_time(&tm, "%Y-%m-%dT%H:%M");
+
+    if (!tsStream.fail()) {
+      char buffer[100];
+      std::strftime(buffer, sizeof(buffer), "%B %d, %Y at %H:%M", &tm);
+      output << "- " << eventName << " on " << buffer << "\n";
+    } else {
+      output << "- " << eventName << " at " << dateTime << "\n";
+    }
+  }
+
+  return output.str();
 }
 
 std::vector<uint8_t> encodeSong(const std::string& file) {

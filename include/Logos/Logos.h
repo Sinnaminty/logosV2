@@ -1,9 +1,14 @@
 #pragma once
 
 #include <dpp/dpp.h>
+#include <dpp/snowflake.h>
+#include <dpp/user.h>
+#include <map>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
 
+using json = nlohmann::json;
 namespace Logos {
 
 enum class mType { GOOD, BAD };
@@ -15,14 +20,23 @@ struct Dice {
   std::string roll();
 };
 
-struct User {
-  dpp::snowflake m_snowflake;
-  std::string m_username;
+struct ScheduleEntry {
+  std::string m_eventName;
+  std::string m_dateTime;
+};
+
+struct ScheduleUser {
+  std::vector<ScheduleEntry> m_events;
+};
+
+struct Schedule {
+  std::map<dpp::snowflake, ScheduleUser> m_idUserMap;
 };
 
 class Carbon {
  public:
   static Carbon& getInstance();
+
   std::vector<std::vector<uint8_t>> s_songQueue;
   std::string s_currentSong;
   bool s_recording;
@@ -34,6 +48,12 @@ class Carbon {
  protected:
   Carbon() = default;
 };
+
+std::string toISO8601(const std::string& date, const std::string& time);
+
+void scheduleAdd(const dpp::snowflake& userId, const std::string& eventString);
+
+std::string scheduleShow(const dpp::snowflake& userId);
 
 dpp::embed createEmbed(const mType& mType, const std::string& m);
 
