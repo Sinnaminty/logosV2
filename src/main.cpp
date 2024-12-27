@@ -53,7 +53,8 @@ int main(int argc, const char* argv[]) {
   bot.on_log(dpp::utility::cout_logger());
 
   bot.on_voice_track_marker([&](const dpp::voice_track_marker_t& ev) {
-    bot.log(dpp::loglevel::ll_debug, "on_voice_track_marker");
+    bot.log(dpp::loglevel::ll_debug, "on_voice_track_marker. currentSong = " +
+                                         Carbon::getInstance().s_currentSong);
 
     auto v = ev.voice_client;
 
@@ -154,12 +155,13 @@ int main(int argc, const char* argv[]) {
       dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
 
       if (v && v->voiceclient && v->voiceclient->is_ready() &&
-          v->voiceclient->get_tracks_remaining() > 1) {
+          v->voiceclient->get_tracks_remaining() > 0) {
+        v->voiceclient->skip_to_next_marker();
         event.reply(dpp::message(
             event.command.channel_id,
-            createEmbed(mType::GOOD, "⏯️ Currently playing: " +
+            createEmbed(mType::GOOD, "⏯️  Now playing: " +
                                          Carbon::getInstance().s_currentSong)));
-        v->voiceclient->skip_to_next_marker();
+
         return;
 
       } else {
