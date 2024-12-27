@@ -18,7 +18,6 @@
 #include <cstdio>
 #include <exception>
 #include <fstream>
-#include <iostream>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -27,18 +26,12 @@
 // #include <liboai.h>
 #include <dpp/nlohmann/json.hpp>
 
-#include <Logos/U.h>
+#include <Logos/Logos.h>
 
 using json = nlohmann::json;
-using namespace U;
+using namespace Logos;
 
 int main(int argc, const char* argv[]) {
-  std::vector<std::vector<uint8_t>> pcmQueue;
-  std::string currentSong;
-  bool recording = false;
-
-  std::map<dpp::snowflake, std::ofstream> userFiles;
-
   json configDocument;
   json sDocument;
   std::ifstream configFile("json/config.json");
@@ -49,8 +42,8 @@ int main(int argc, const char* argv[]) {
   s >> sDocument;
 
   // dpp::snowflake ydsGuildId(configDocument["yds-guild-id"]);
-  dpp::snowflake watGuildId(configDocument["wat-guild-id"]);
-  // dpp::snowflake tvvGuildId(configDocument["tvv-guild-id"]);
+  // dpp::snowflake watGuildId(configDocument["wat-guild-id"]);
+  dpp::snowflake tvvGuildId(configDocument["tvv-guild-id"]);
   // dpp::snowflake tnbGuildId(configDocument["tnb-guild-id"]);
 
   dpp::cluster bot(sDocument["bot-token"], dpp::i_default_intents |
@@ -68,31 +61,33 @@ int main(int argc, const char* argv[]) {
      * tell the user. */
     if (!v || !v->is_ready()) {
       bot.log(dpp::loglevel::ll_error, "Connection Error. clearing queue..");
-      currentSong.clear();
-      pcmQueue.clear();
+      Carbon::getInstance().s_currentSong = "";
+      Carbon::getInstance().s_songQueue.clear();
       return;
     }
 
-    currentSong = ev.track_meta;
+    Carbon::getInstance().s_currentSong = ev.track_meta;
 
-    if (pcmQueue.size() > 0) {
-      std::vector<uint8_t> pcmData = pcmQueue.back();
-      pcmQueue.pop_back();
+    if (Carbon::getInstance().s_songQueue.size() > 0) {
+      std::vector<uint8_t> pcmData = Carbon::getInstance().s_songQueue.back();
+      Carbon::getInstance().s_songQueue.pop_back();
       v->send_audio_raw((uint16_t*)pcmData.data(), pcmData.size());
       return;
 
     } else {
       bot.log(dpp::loglevel::ll_error, "Error dequeing song. clearing queue..");
-      currentSong.clear();
-      pcmQueue.clear();
+      Carbon::getInstance().s_currentSong = "";
+      Carbon::getInstance().s_songQueue.clear();
       return;
     }
   });
 
   bot.on_voice_receive([&](const dpp::voice_receive_t& event) {
-    if (recording) {
-      if (userFiles.find(event.user_id) != userFiles.end()) {
-        userFiles[event.user_id].write((char*)event.audio, event.audio_size);
+    if (Carbon::getInstance().s_recording) {
+      if (Carbon::getInstance().s_userFileMap.find(event.user_id) !=
+          Carbon::getInstance().s_userFileMap.end()) {
+        Carbon::getInstance().s_userFileMap[event.user_id].write(
+            (char*)event.audio, event.audio_size);
       }
     }
   });
@@ -141,7 +136,8 @@ int main(int argc, const char* argv[]) {
           v->voiceclient->get_tracks_remaining() > 0) {
         event.reply(dpp::message(
             event.command.channel_id,
-            createEmbed(mType::GOOD, "⏯️ Currently playing: " + currentSong)));
+            createEmbed(mType::GOOD, "⏯️ Currently playing: " +
+                                         Carbon::getInstance().s_currentSong)));
         return;
 
       } else {
@@ -161,7 +157,8 @@ int main(int argc, const char* argv[]) {
           v->voiceclient->get_tracks_remaining() > 1) {
         event.reply(dpp::message(
             event.command.channel_id,
-            createEmbed(mType::GOOD, "⏯️ Currently playing: " + currentSong)));
+            createEmbed(mType::GOOD, "⏯️ Currently playing: " +
+                                         Carbon::getInstance().s_currentSong)));
         v->voiceclient->skip_to_next_marker();
         return;
 
@@ -237,12 +234,8 @@ int main(int argc, const char* argv[]) {
           std::get<std::string>(event.get_parameter("link"));
       const std::string fileName = downloadSong(link);
       const std::vector<uint8_t> pcmData = encodeSong("music/" + fileName);
-      bot.log(dpp::loglevel::ll_debug,
-              "past pcm data. size = " + std::to_string(pcmData.size()));
-      pcmQueue.emplace_back(pcmData);
+      Carbon::getInstance().s_songQueue.emplace_back(pcmData);
 
-      bot.log(dpp::loglevel::ll_debug,
-              "pcmQueue size = " + std::to_string(pcmQueue.size()));
       v->voiceclient->insert_marker(fileName);
 
       event.edit_original_response(
@@ -276,14 +269,16 @@ int main(int argc, const char* argv[]) {
         v->voiceclient->pause_audio(true);
         event.reply(dpp::message(
             event.command.channel_id,
-            createEmbed(mType::GOOD, "⏯️ Pausing track: " + currentSong)));
+            createEmbed(mType::GOOD, "⏯️ Pausing track: " +
+                                         Carbon::getInstance().s_currentSong)));
         return;
 
       } else {
         v->voiceclient->pause_audio(false);
         event.reply(dpp::message(
             event.command.channel_id,
-            createEmbed(mType::GOOD, "⏯️ Unpausing track: " + currentSong)));
+            createEmbed(mType::GOOD, "⏯️ Unpausing track: " +
+                                         Carbon::getInstance().s_currentSong)));
         return;
       }
 
@@ -397,14 +392,15 @@ int main(int argc, const char* argv[]) {
 
       auto members = event.command.get_guild().members;
       auto vcMembers = event.command.get_guild().voice_members;
-      if (!recording) {
+      if (!Carbon::getInstance().s_recording) {
         try {
           for (auto [s, v] : vcMembers) {
             std::string username = members.find(s)->second.get_user()->username;
             std::string filename = "./" + username + ".pcm";
-            userFiles[s] = std::ofstream(filename, std::ios::binary);
+            Carbon::getInstance().s_userFileMap[s] =
+                std::ofstream(filename, std::ios::binary);
           }
-          recording = true;
+          Carbon::getInstance().s_recording = true;
 
           event.edit_original_response(
               dpp::message(event.command.channel_id,
@@ -419,17 +415,17 @@ int main(int argc, const char* argv[]) {
 
       } else {
         try {
-          recording = false;
+          Carbon::getInstance().s_recording = false;
           dpp::message msg(event.command.channel_id,
                            createEmbed(mType::GOOD, "Stopped Recording!"));
-          for (auto& [s, o] : userFiles) {
+          for (auto& [s, o] : Carbon::getInstance().s_userFileMap) {
             std::string username = members.find(s)->second.get_user()->username;
             std::string filename = "./" + username + ".pcm";
             o.close();
             msg.add_file(filename, dpp::utility::read_file(filename));
           }
 
-          userFiles.clear();
+          Carbon::getInstance().s_userFileMap.clear();
           event.edit_original_response(msg);
           return;
 
@@ -447,9 +443,9 @@ int main(int argc, const char* argv[]) {
 
   bot.on_ready([&](const dpp::ready_t& event) -> void {
     if (dpp::run_once<struct clear_bot_commands>()) {
-      //   bot.guild_bulk_command_delete(ydsGuildId);
-      bot.guild_bulk_command_delete(watGuildId);
-      //  bot.guild_bulk_command_delete(tvvGuildId);
+      // bot.guild_bulk_command_delete(ydsGuildId);
+      // bot.guild_bulk_command_delete(watGuildId);
+      bot.guild_bulk_command_delete(tvvGuildId);
       // bot.guild_bulk_command_delete(tnbGuildId);
     }
 
@@ -518,8 +514,8 @@ int main(int argc, const char* argv[]) {
           join, queue, np, skip, pause, stop, play, roll, say, transcribe};
 
       // bot.guild_bulk_command_create(commands, ydsGuildId);
-      bot.guild_bulk_command_create(commands, watGuildId);
-      // bot.guild_bulk_command_create(commands, tvvGuildId);
+      // bot.guild_bulk_command_create(commands, watGuildId);
+      bot.guild_bulk_command_create(commands, tvvGuildId);
       // bot.guild_bulk_command_create(commands, tnbGuildId);
 
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");

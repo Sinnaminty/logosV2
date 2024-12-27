@@ -1,11 +1,10 @@
-#ifndef U_H
-#define U_H
-
+#pragma once
 #include <dpp/dpp.h>
+#include <dpp/snowflake.h>
 #include <string>
 #include <vector>
 
-namespace U {
+namespace Logos {
 
 enum class mType { GOOD, BAD };
 
@@ -16,7 +15,27 @@ struct Dice {
   std::string roll();
 };
 
-dpp::embed createEmbed(const U::mType& mType, const std::string& m);
+struct User {
+  dpp::snowflake m_snowflake;
+  std::string m_username;
+};
+
+class Carbon {
+ public:
+  static Carbon& getInstance();
+  std::vector<std::vector<uint8_t>> s_songQueue;
+  std::string s_currentSong;
+  bool s_recording;
+
+  std::map<dpp::snowflake, std::ofstream> s_userFileMap;
+
+  Carbon(const Carbon&) = delete;
+
+ protected:
+  Carbon() = default;
+};
+
+dpp::embed createEmbed(const mType& mType, const std::string& m);
 
 std::string downloadSong(const std::string& link);
 std::vector<uint8_t> encodeSong(const std::string& file);
@@ -29,5 +48,4 @@ void archiveChannel(const std::string& channelName,
 
 std::vector<Dice> parseDiceString(const std::string& s);
 
-}  // namespace U
-#endif
+}  // namespace Logos

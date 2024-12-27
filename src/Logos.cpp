@@ -1,4 +1,4 @@
-#include <Logos/U.h>
+#include <Logos/Logos.h>
 #include <dpp/colors.h>
 #include <mpg123.h>
 #include <chrono>
@@ -8,7 +8,12 @@
 #include <string>
 #include <vector>
 
-namespace U {
+namespace Logos {
+
+Carbon& Carbon::getInstance() {
+  static Carbon instance;
+  return instance;
+}
 
 dpp::embed createEmbed(const mType& mType, const std::string& m) {
   switch (mType) {
@@ -182,4 +187,4 @@ std::vector<Dice> parseDiceString(const std::string& s) {
   return diceList;
 }
 
-}  // namespace U
+}  // namespace Logos
