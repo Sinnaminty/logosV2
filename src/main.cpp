@@ -2,24 +2,29 @@
 #include <dpp/cache.h>
 #include <dpp/channel.h>
 #include <dpp/dpp.h>
+#include <dpp/guild.h>
 #include <dpp/message.h>
 #include <dpp/misc-enum.h>
 #include <dpp/queues.h>
 
 #include <dpp/restresults.h>
 #include <dpp/snowflake.h>
+#include <dpp/user.h>
 #include <dpp/utility.h>
 #include <out123.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <cstdint>
+#include <cstdio>
 #include <exception>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
+// #include <liboai.h>
 #include <dpp/nlohmann/json.hpp>
 
 #include <Logos/U.h>
@@ -27,21 +32,30 @@
 using json = nlohmann::json;
 using namespace U;
 
-std::vector<std::vector<uint8_t>> pcmQueue;
-std::string currentSong;
-
 int main(int argc, const char* argv[]) {
+  std::vector<std::vector<uint8_t>> pcmQueue;
+  std::string currentSong;
+  bool recording = false;
+
+  std::map<dpp::snowflake, std::ofstream> userFiles;
+
   json configDocument;
+  json sDocument;
   std::ifstream configFile("json/config.json");
+
+  std::ifstream s("json/s.json");
+
   configFile >> configDocument;
+  s >> sDocument;
 
-  dpp::snowflake ydsGuildId(configDocument["yds-guild-id"]);
+  // dpp::snowflake ydsGuildId(configDocument["yds-guild-id"]);
   dpp::snowflake watGuildId(configDocument["wat-guild-id"]);
-  dpp::snowflake tvvGuildId(configDocument["tvv-guild-id"]);
+  // dpp::snowflake tvvGuildId(configDocument["tvv-guild-id"]);
+  // dpp::snowflake tnbGuildId(configDocument["tnb-guild-id"]);
 
-  dpp::cluster bot(configDocument["token"], dpp::i_default_intents |
-                                                dpp::i_guild_members |
-                                                dpp::i_message_content);
+  dpp::cluster bot(sDocument["bot-token"], dpp::i_default_intents |
+                                               dpp::i_guild_members |
+                                               dpp::i_message_content);
 
   bot.on_log(dpp::utility::cout_logger());
 
@@ -72,6 +86,14 @@ int main(int argc, const char* argv[]) {
       currentSong.clear();
       pcmQueue.clear();
       return;
+    }
+  });
+
+  bot.on_voice_receive([&](const dpp::voice_receive_t& event) {
+    if (recording) {
+      if (userFiles.find(event.user_id) != userFiles.end()) {
+        userFiles[event.user_id].write((char*)event.audio, event.audio_size);
+      }
     }
   });
 
@@ -267,54 +289,6 @@ int main(int argc, const char* argv[]) {
 
       ////////////////////////////////////////////////////////////////////////////////////////////
 
-    } else if (event.command.get_command_name() == "warfstatus") {
-      event.reply(
-          dpp::message(event.command.channel_id,
-                       createEmbed(mType::BAD, "Not Yet Implemented!")));
-      return;
-      // bot.request("https://api.warframestat.us/pc/", dpp::m_get,
-      //             [](const dpp::http_request_completion_t& cc) {
-      //               // This callback is called when the HTTP request
-      //               // completes. See documentation of
-      //               // dpp::http_request_completion_t for information
-      //               // on the fields in the parameter.
-      //               std::cout << "I got reply: " << cc.body
-      //                         << " with HTTP status code: " << cc.status
-      //                         << "\n";
-      //             },
-      //             "", "application/json", {});
-      // event.reply("check console!");
-
-      ////////////////////////////////////////////////////////////////////////////////////////////
-
-    } else if (event.command.get_command_name() == "rizzmeup") {
-      dpp::snowflake user = event.command.get_issuing_user().id;
-
-      /* Send a message to the user set above. */
-      bot.direct_message_create(
-          user, dpp::message("rizz."),
-          [&](const dpp::confirmation_callback_t& callback) {
-            /* If the callback errors, we want to send a message telling the
-             * author that something went wrong. */
-
-            if (callback.is_error()) {
-              /* Here, we want the error message to be different if the user
-               * we're trying to send a message to is the command author. */
-
-              bot.log(dpp::loglevel::ll_error,
-                      callback.get_error().human_readable);
-
-              event.reply(dpp::message(event.command.channel_id,
-                                       createEmbed(mType::BAD,
-                                                   "I couldn't rizz you up..."))
-                              .set_flags(dpp::m_ephemeral));
-
-              return;
-            }
-          });
-
-      ////////////////////////////////////////////////////////////////////////////////////////////
-
     } else if (event.command.get_command_name() == "roll") {
       try {
         std::string roll = std::get<std::string>(event.get_parameter("roll"));
@@ -403,87 +377,128 @@ int main(int argc, const char* argv[]) {
 
       ////////////////////////////////////////////////////////////////////////////////////////////
 
-    } else if (event.command.get_command_name() == "archive") {
-      dpp::snowflake guild_id = event.command.guild_id;
+    } else if (event.command.get_command_name() == "transcribe") {
+      event.thinking(false, [&](const dpp::confirmation_callback_t& callback) {
 
-      // Fetch all channels in the guild
-      bot.channels_get(
-          guild_id, [&](const dpp::confirmation_callback_t& callback) {
-            if (callback.is_error()) {
-              std::cout << callback.get_error().message << "\n";
-              return;
-            }
+      });
+      /* Get the voice channel the bot is in, in this current guild. */
+      dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
 
-            auto channels = callback.get<dpp::channel_map>();
+      /* If the voice channel was invalid, or there is an issue with it, then
+       * tell the user. */
+      if (!v || !v->voiceclient || !v->voiceclient->is_ready()) {
+        event.edit_original_response(dpp::message(
+            event.command.channel_id,
+            createEmbed(mType::BAD,
+                        "🔇 There was an issue with getting the voice channel. "
+                        "Make sure I'm in a voice channel! :(")));
+        return;
+      }
 
-            std::cout << "got all channels!\n";
+      auto members = event.command.get_guild().members;
+      auto vcMembers = event.command.get_guild().voice_members;
+      if (!recording) {
+        try {
+          for (auto [s, v] : vcMembers) {
+            std::string username = members.find(s)->second.get_user()->username;
+            std::string filename = "./" + username + ".pcm";
+            userFiles[s] = std::ofstream(filename, std::ios::binary);
+          }
+          recording = true;
 
-            // Process all channels within the server.
-            for (const auto& [id, channel] : channels) {
-              if (channel.is_text_channel()) {
-                std::cout << "is channel!: " << channel.name << "\n";
-                bot.messages_get(
-                    id, 0, 0, 0, 100,
-                    [&](const dpp::confirmation_callback_t& callback) {
-                      if (callback.is_error()) {
-                        std::cerr << "Failed to fetch messages "
-                                     "for channel: "
-                                  << channel.name << "\n";
-                        return;
-                      }
+          event.edit_original_response(
+              dpp::message(event.command.channel_id,
+                           createEmbed(mType::GOOD, "Started Recording!")));
+          return;
 
-                      auto messages = callback.get<dpp::message_map>();
+        } catch (const std::exception& e) {
+          event.edit_original_response(dpp::message(
+              event.command.channel_id, createEmbed(mType::BAD, e.what())));
+          return;
+        }
 
-                      std::cout << "msgs get! channel:" << channel.name << "\n";
+      } else {
+        try {
+          recording = false;
+          dpp::message msg(event.command.channel_id,
+                           createEmbed(mType::GOOD, "Stopped Recording!"));
+          for (auto& [s, o] : userFiles) {
+            std::string username = members.find(s)->second.get_user()->username;
+            std::string filename = "./" + username + ".pcm";
+            o.close();
+            msg.add_file(filename, dpp::utility::read_file(filename));
+          }
 
-                      dpp::cache<dpp::message> cache;
-                      for (const auto& [id, msg] : messages) {
-                        dpp::message* m = new dpp::message;
-                        *m = msg;
-                        cache.store(m);
-                      }
-                      std::cout << "all messages saved for: " << channel.name
-                                << ". passing to archiveChannel.";
+          userFiles.clear();
+          event.edit_original_response(msg);
+          return;
 
-                      U::archiveChannel(channel.name, cache);
-                    });
-              }
-            }
-          });
+        } catch (const std::exception& e) {
+          event.edit_original_response(dpp::message(
+              event.command.channel_id, createEmbed(mType::BAD, e.what())));
+
+          return;
+        }
+      }
+
+      ////////////////////////////////////////////////////////////////////////////////////////////
     }
   });
 
   bot.on_ready([&](const dpp::ready_t& event) -> void {
     if (dpp::run_once<struct clear_bot_commands>()) {
-      // bot.global_bulk_command_delete();
-      bot.guild_bulk_command_delete(ydsGuildId);
+      //   bot.guild_bulk_command_delete(ydsGuildId);
       bot.guild_bulk_command_delete(watGuildId);
-      bot.guild_bulk_command_delete(tvvGuildId);
+      //  bot.guild_bulk_command_delete(tvvGuildId);
+      // bot.guild_bulk_command_delete(tnbGuildId);
     }
 
     if (dpp::run_once<struct register_bot_commands>()) {
-      // radio commands
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+      /// radio commands
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+
       dpp::slashcommand join("join", "Joins the user's vc.", bot.me.id);
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+
       dpp::slashcommand queue("queue", "Show music queue.", bot.me.id);
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+
       dpp::slashcommand np("np", "Show currently playing song.", bot.me.id);
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+
       dpp::slashcommand skip("skip", "Skip to the next song in queue.",
                              bot.me.id);
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+
       dpp::slashcommand pause("pause", "Toggle pause the music.", bot.me.id);
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+
       dpp::slashcommand stop(
           "stop", "Stop playing, clear queue and leave voice channel.",
           bot.me.id);
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
 
       dpp::slashcommand play("play", "Play a song.", bot.me.id);
       play.add_option((dpp::command_option(dpp::co_string, "link",
                                            "The link to the song.", true)));
 
-      // other commands
-      dpp::slashcommand rizzmeup("rizzmeup", "delta sigma alpha.", bot.me.id);
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+      /// other commands
+      /////////////////////////////////////////////////////////////////////////////////////////////////
 
       dpp::slashcommand roll(
           "roll", "Roll any specified number of x sided die.", bot.me.id);
       roll.add_option(dpp::command_option(
           dpp::co_string, "roll", "Roll String (ex. '1d20 2d10 3d6')", true));
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
 
       dpp::slashcommand say("say", "Make me speak.(Moon Base Alpha friendly.)",
                             bot.me.id);
@@ -493,20 +508,19 @@ int main(int argc, const char* argv[]) {
           dpp::co_boolean, "dl",
           "Download this file and send it to the channel?", false)));
 
-      dpp::slashcommand warfstatus(
-          "warfstatus", "Get World State Data from Warframe.", bot.me.id);
+      /////////////////////////////////////////////////////////////////////////////////////////////////
 
-      //   dpp::slashcommand archive (
-      //       "archive",
-      //       "Saves every text channel in this server.",
-      //       bot.me.id );
+      dpp::slashcommand transcribe("transcribe", "Record VC.", bot.me.id);
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
 
       const std::vector<dpp::slashcommand> commands = {
-          join, queue,    np,   skip, pause,     stop,
-          play, rizzmeup, roll, say,  warfstatus};
-      bot.guild_bulk_command_create(commands, ydsGuildId);
+          join, queue, np, skip, pause, stop, play, roll, say, transcribe};
+
+      // bot.guild_bulk_command_create(commands, ydsGuildId);
       bot.guild_bulk_command_create(commands, watGuildId);
-      bot.guild_bulk_command_create(commands, tvvGuildId);
+      // bot.guild_bulk_command_create(commands, tvvGuildId);
+      // bot.guild_bulk_command_create(commands, tnbGuildId);
 
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
     }

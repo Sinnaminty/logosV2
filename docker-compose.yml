@@ -1,0 +1,8 @@
+version: "3.8"
+services:
+  logos:
+    build:
+      context: .
+    container_name: logos_container
+    restart: always
+
