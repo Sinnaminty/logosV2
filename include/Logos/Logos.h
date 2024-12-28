@@ -1,6 +1,7 @@
 #pragma once
 
 #include <dpp/dpp.h>
+#include <dpp/message.h>
 #include <dpp/snowflake.h>
 #include <dpp/user.h>
 #include <map>
@@ -22,7 +23,7 @@ struct Dice {
 
 struct ScheduleEntry {
   std::string m_eventName;
-  std::string m_dateTime;
+  long m_dateTime;
 };
 
 struct ScheduleUser {
@@ -49,7 +50,7 @@ class Carbon {
   Carbon() = default;
 };
 
-std::string toISO8601(const std::string& date, const std::string& time);
+std::pair<dpp::snowflake, dpp::message> checkSchedule();
 
 void scheduleAdd(const dpp::snowflake& userId, const std::string& eventString);
 

@@ -478,6 +478,14 @@ int main(int argc, const char* argv[]) {
   ////////////////////////////////////////////////////////////////////////////////////////////
 
   bot.on_ready([&](const dpp::ready_t& event) -> void {
+    bot.start_timer(
+        [&](const dpp::timer& timer) {
+          std::pair<dpp::snowflake, dpp::message> schEvent = checkSchedule();
+          if ((!schEvent.first.empty())) {
+            bot.direct_message_create(schEvent.first, schEvent.second);
+          }
+        },
+        60);
     if (dpp::run_once<struct clear_bot_commands>()) {
       bot.guild_bulk_command_delete(ydsGuild);
     }
@@ -545,7 +553,7 @@ int main(int argc, const char* argv[]) {
 
       dpp::slashcommand schedule("schedule", "Show schedule.", bot.me.id);
       schedule.add_option(dpp::command_option(
-          dpp::co_string, "add", "(name) (mm/dd/yy) (00:00)", false));
+          dpp::co_string, "add", "(name) (mm/dd/yy) (HHmm)", false));
 
       /////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -1,12 +1,18 @@
 #include <Logos/Logos.h>
 #include <dpp/cache.h>
+#include <dpp/message.h>
+#include <dpp/snowflake.h>
+#include <dpp/user.h>
+#include <dpp/utility.h>
 #include <mpg123.h>
+#include <chrono>
 #include <exception>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <regex>
 #include <stdexcept>
 #include <string>
+
 using json = nlohmann::json;
 
 namespace Logos {
@@ -67,30 +73,37 @@ dpp::embed createEmbed(const mType& mType, const std::string& m) {
   }
 }
 
-std::string toISO8601(const std::string& date, const std::string& time) {
-  std::ostringstream isoFormat;
-  std::istringstream dateStream(date);
-  std::istringstream timeStream(time);
+std::pair<dpp::snowflake, dpp::message> checkSchedule() {
+  std::pair<dpp::snowflake, dpp::message> ret;
+  std::ifstream inFile("json/schedule.json");
+  json schj;
 
-  int month, day, year, hour, minute, hourMinute;
-  char slash;
-
-  if (!(dateStream >> month >> slash >> day >> slash >> year) ||
-      !(timeStream >> hourMinute)) {
-    return "";  // Return empty string on failure
+  if (!inFile.is_open()) {
+    std::cerr << "Warning: checkSchedule failed to open the schedule.";
+    return ret;
   }
 
-  // Convert year to four digits
-  year += (year < 50) ? 2000 : 1900;
+  try {
+    inFile >> schj;
+  } catch (const std::exception& e) {
+    std::cerr << e.what();
+    return ret;
+  }
 
-  hour = hourMinute / 100;
-  minute = hourMinute % 100;
-  // Format as ISO 8601: YYYY-MM-DDTHH:MM
-  isoFormat << std::setfill('0') << std::setw(4) << year << "-" << std::setw(2)
-            << month << "-" << std::setw(2) << day << "T" << std::setw(2)
-            << hour << ":" << std::setw(2) << minute;
+  inFile.close();
 
-  return isoFormat.str();
+  Schedule sch = schj.template get<Schedule>();
+  auto now = dpp::utility::time_f();
+  for (auto u : sch.m_idUserMap) {
+    for (auto e : u.second.m_events) {
+      if (e.m_dateTime < now) {
+        ret.first = u.first;
+        ret.second = dpp::message(createEmbed(mType::GOOD, e.m_eventName));
+        return ret;
+      }
+    }
+  }
+  return ret;
 }
 
 void scheduleAdd(const dpp::snowflake& userId, const std::string& eventString) {
@@ -111,13 +124,35 @@ void scheduleAdd(const dpp::snowflake& userId, const std::string& eventString) {
   if (time.size() != 4) {
     throw(std::invalid_argument("Invalid time format."));
   }
+  auto dateVec = dpp::utility::tokenize(date, "/");
 
-  // Convert date and time to ISO 8601 format
-  std::string isoTimestamp = toISO8601(date, time);
-  if (isoTimestamp.empty()) {
-    throw(std::runtime_error(
-        "Error converting date and time to ISO 8601 format."));
-  }
+  int year = std::stoi(dateVec.at(2));
+
+  year += 2000;
+  std::cerr << "GOD AWFUL FUNCTION ALERT. year:" << year;
+
+  int month = std::stoi(dateVec.at(0));
+  std::cerr << "GOD AWFUL FUNCTION ALERT. month:" << year;
+
+  int day = std::stoi(dateVec.at(1));
+  std::cerr << "GOD AWFUL FUNCTION ALERT. day:" << day;
+
+  int realTime = std::stoi(time);
+  int hours = realTime / 100;
+  int minutes = realTime % 100;
+
+  // Convert date and time to unix timestamp
+  struct tm datetime;
+
+  datetime.tm_year = year - 1900;
+  datetime.tm_mon = month;
+  datetime.tm_mday = day;
+  datetime.tm_hour = hours;
+  datetime.tm_min = minutes;
+  datetime.tm_sec = 0;
+  datetime.tm_isdst = -1;
+
+  time_t timestamp = mktime(&datetime);
 
   // Prepare JSON structure
   std::ifstream inFile("json/schedule.json");
@@ -141,7 +176,7 @@ void scheduleAdd(const dpp::snowflake& userId, const std::string& eventString) {
   }
 
   // Add new event
-  ScheduleEntry newEntry{eventName, isoTimestamp};
+  ScheduleEntry newEntry{eventName, timestamp};
   if (!schj.contains(std::to_string(userId))) {
     // If the user doesn't exist in the JSON, create their entry
     schj[std::to_string(userId)] = ScheduleUser{{}};
@@ -189,20 +224,10 @@ std::string scheduleShow(const dpp::snowflake& userId) {
   auto userSchedule = schj[std::to_string(userId)]["events"];
   for (const auto& event : userSchedule) {
     std::string eventName = event.value("eventName", "Unknown");
-    std::string dateTime = event.value("dateTime", "Unknown");
-
-    // Convert ISO 8601 to human-readable format
-    std::istringstream tsStream(dateTime);
-    std::tm tm = {};
-    tsStream >> std::get_time(&tm, "%Y-%m-%dT%H:%M");
-
-    if (!tsStream.fail()) {
-      char buffer[100];
-      std::strftime(buffer, sizeof(buffer), "%B %d, %Y at %H:%M", &tm);
-      output << "- " << eventName << " on " << buffer << "\n";
-    } else {
-      output << "- " << eventName << " at " << dateTime << "\n";
-    }
+    long dateTime = event.value("dateTime", 0);
+    std::string formatedDateTime =
+        dpp::utility::timestamp(dateTime, dpp::utility::tf_long_datetime);
+    output << eventName << ": " << formatedDateTime << "\n";
   }
 
   return output.str();
