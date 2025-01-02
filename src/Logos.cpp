@@ -49,6 +49,7 @@ void to_json(json& j, const Schedule& schedule) {
 void from_json(const json& j, Schedule& schedule) {
   j.get_to(schedule.m_idUserMap);
 }
+
 dpp::embed createEmbed(const mType& mType, const std::string& m) {
   switch (mType) {
     case mType::GOOD: {
