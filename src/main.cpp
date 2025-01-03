@@ -1,14 +1,5 @@
-// #include <liboai.h>
 #include <Logos/Logos.h>
-#include <dpp/appcommand.h>
-#include <dpp/cache.h>
-#include <dpp/dispatcher.h>
-#include <dpp/message.h>
-#include <dpp/restresults.h>
-#include <dpp/snowflake.h>
-#include <exception>
-#include <stdexcept>
-#include <string>
+#include <Logos/Schedule.h>
 
 using json = nlohmann::json;
 using namespace Logos;
@@ -429,7 +420,7 @@ int main(int argc, const char* argv[]) {
 
       if (!eventString.empty()) {
         try {
-          scheduleAdd(userId, eventString);
+          Schedule::scheduleAdd(userId, eventString);
 
         } catch (const std::exception& e) {
           event.reply(dpp::message(event.command.channel_id,
@@ -439,7 +430,7 @@ int main(int argc, const char* argv[]) {
       }
 
       try {
-        std::string resp = scheduleShow(userId);
+        std::string resp = Schedule::scheduleShow(userId);
 
         event.reply(dpp::message(event.command.channel_id,
                                  createEmbed(mType::GOOD, resp)));
@@ -480,12 +471,15 @@ int main(int argc, const char* argv[]) {
   bot.on_ready([&](const dpp::ready_t& event) -> void {
     bot.start_timer(
         [&](const dpp::timer& timer) {
-          std::pair<dpp::snowflake, dpp::message> schEvent = checkSchedule();
+          auto schEvent = Schedule::checkSchedule();
           if ((!schEvent.first.empty())) {
+            bot.log(dpp::ll_debug, "first is not empty!");
             bot.direct_message_create(schEvent.first, schEvent.second);
+          } else {
+            bot.log(dpp::ll_debug, "first is empty!");
           }
         },
-        60);
+        5);
     if (dpp::run_once<struct clear_bot_commands>()) {
       bot.guild_bulk_command_delete(ydsGuild);
     }
