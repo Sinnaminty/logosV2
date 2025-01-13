@@ -1,4 +1,5 @@
 #include <Logos/Logos.h>
+#include <dpp/colors.h>
 #include <mpg123.h>
 #include <cstddef>
 #include <regex>
@@ -6,6 +7,16 @@
 using json = nlohmann::json;
 
 namespace Logos {
+
+std::string Dice::roll() {
+  srand((unsigned)time(NULL));
+  std::string retString;
+
+  for (int i = 0; i < this->m_num; i++) {
+    retString += std::to_string(1 + (rand() % this->m_side)) + " ";
+  }
+  return retString;
+}
 
 Carbon& Carbon::getInstance() {
   static Carbon instance;
@@ -26,6 +37,13 @@ dpp::embed createEmbed(const mType& mType, const std::string& m) {
       return dpp::embed()
           .set_color(dpp::colors::cranberry)
           .set_title("Uh-Oh!")
+          .set_description(m)
+          .set_timestamp(time(0));
+    }
+    case mType::EVENT: {
+      return dpp::embed()
+          .set_color(dpp::colors::bright_gold)
+          .set_title("Event!")
           .set_description(m)
           .set_timestamp(time(0));
     }
@@ -152,16 +170,6 @@ std::string downloadSong(const std::string& link) {
 
 void archiveChannel(const std::string& channelName,
                     const dpp::cache<dpp::message>& cache) {}
-
-std::string Dice::roll() {
-  srand((unsigned)time(NULL));
-  std::string retString;
-
-  for (int i = 0; i < this->m_num; i++) {
-    retString += std::to_string(1 + (rand() % this->m_side)) + " ";
-  }
-  return retString;
-}
 
 std::vector<Dice> parseDiceString(const std::string& s) {
   std::vector<Dice> diceList;

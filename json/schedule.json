@@ -1,28 +1,7 @@
 {
     "schedules": [
         {
-            "events": [
-                {
-                    "dateTime": 1738567740,
-                    "eventName": "ahsdf"
-                },
-                {
-                    "dateTime": 1738567200,
-                    "eventName": "jdkfjs"
-                },
-                {
-                    "dateTime": 1738567800,
-                    "eventName": "abcd"
-                },
-                {
-                    "dateTime": 1738567800,
-                    "eventName": "jlk;sdf"
-                },
-                {
-                    "dateTime": 1735889400,
-                    "eventName": "jlk;sdf"
-                }
-            ],
+            "events": [],
             "snowflake": "326389428593623040"
         }
     ]

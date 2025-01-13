@@ -1,12 +1,17 @@
 #include <Logos/Schedule.h>
+#include <dpp/cache.h>
+#include <dpp/snowflake.h>
 #include <algorithm>
+#include <ctime>
 #include <fstream>
+#include <optional>
 #include <stdexcept>
+#include <string>
 
 using json = nlohmann::json;
 
 namespace Schedule {
-
+/////////////////////////////////////////////////////
 // ScheduleEntry
 void from_json(const json& j, ScheduleEntry& entry) {
   j.at("eventName").get_to(entry.m_eventName);
@@ -17,8 +22,18 @@ void to_json(json& j, const ScheduleEntry& entry) {
   j = json{{"eventName", entry.m_eventName}, {"dateTime", entry.m_dateTime}};
 }
 
-/////////////////////////////////////////////////////
+std::string ScheduleEntry::toString() const {
+  std::ostringstream output;
+  std::string eventName = this->m_eventName;
+  long dateTime = this->m_dateTime;
 
+  std::string formatedDateTime =
+      dpp::utility::timestamp(dateTime, dpp::utility::tf_long_datetime);
+  output << eventName << ": " << formatedDateTime << "\n";
+  return output.str();
+}
+
+/////////////////////////////////////////////////////
 // UserSchedule
 
 void from_json(const json& j, UserSchedule& user) {
@@ -30,8 +45,41 @@ void to_json(json& j, const UserSchedule& user) {
   j = json{{"events", user.m_events}, {"snowflake", user.m_snowflake}};
 }
 
-/////////////////////////////////////////////////////
+std::string UserSchedule::toString() const {
+  std::ostringstream output;
+  output << "Schedule for "
+         << dpp::find_user(dpp::snowflake(this->m_snowflake))->username
+         << ":\n";
 
+  for (const auto& event : this->m_events) {
+    output << event.toString();
+  }
+
+  return output.str();
+}
+
+void UserSchedule::addEvent(const std::string& name,
+                            const std::string& date,
+                            const std::string& time) {
+  m_events.push_back(ScheduleEntry{name, parseDateTime(date, time)});
+  setUserSchedule(*this);
+}
+
+void UserSchedule::removeEvent(const std::string& name) {
+  auto eventIt = std::find_if(
+      m_events.begin(), m_events.end(),
+      [&](const ScheduleEntry& entry) { return entry.m_eventName == name; });
+
+  if (eventIt == m_events.end()) {
+    throw(std::runtime_error("ERROR - scheduleRemove: Event does not exist."));
+  }
+
+  // we good, ain't no pressure
+  m_events.erase(eventIt);
+  setUserSchedule(*this);
+}
+
+/////////////////////////////////////////////////////
 // Schedule
 
 void from_json(const json& j, Schedule& schedule) {
@@ -43,31 +91,60 @@ void to_json(json& j, const Schedule& schedule) {
 }
 
 /////////////////////////////////////////////////////
+/// Front end functions
 
-void initSchedule() {
+void scheduleAdd(const dpp::snowflake& snowflake,
+                 const std::string& name,
+                 const std::string& date,
+                 const std::string& time) {
+  UserSchedule userSchedule = getUserSchedule(snowflake);
+  userSchedule.addEvent(name, date, time);
+  setUserSchedule(userSchedule);
+}
+
+void scheduleEdit(const dpp::snowflake& snowflake,
+                  const std::string& name,
+                  const std::string& date,
+                  const std::string& time) {}
+
+void scheduleRemove(const dpp::snowflake& snowflake,
+                    const std::string& name,
+                    const std::string& date,
+                    const std::string& time) {
+  // not yet implemented
+  UserSchedule userSchedule = getUserSchedule(snowflake);
+}
+
+/////////////////////////////////////////////////////
+/// Back end functions
+
+Schedule initGlobalSchedule() {
   std::ofstream outFile("json/schedule.json");
 
   if (outFile.is_open()) {
     json schj = Schedule();
     outFile << schj.dump(4) << std::endl;
     outFile.close();
-    std::cout << "Debug - initSchedule: Successfully created schedule.json\n";
+    std::cout
+        << "Debug - initGlobalSchedule: Successfully created schedule.json\n";
 
   } else {
-    throw(std::runtime_error(
-        " Error - initSchedule : Cannot create schedule.json. you're fucked!"));
+    throw(
+        std::runtime_error(" Error - initGlobalSchedule: Cannot create "
+                           "schedule.json. you're fucked!"));
   }
+  return Schedule();
 }
 
-Schedule readSchedule() {
+Schedule getGlobalSchedule() {
   if (!std::filesystem::exists("json/schedule.json")) {
-    initSchedule();
+    return initGlobalSchedule();
   }
 
   std::ifstream inFile("json/schedule.json");
   if (!inFile.is_open()) {
     throw(std::runtime_error(
-        " Error - readSchedule: Cannot open schedule.json!"));
+        " Error - readSchedule: Cannot open schedule.json! You're fucked!"));
   }
 
   json schj;
@@ -77,49 +154,99 @@ Schedule readSchedule() {
   return schj.template get<Schedule>();
 }
 
-void writeSchedule(const Schedule& schedule) {
+void setGlobalSchedule(const Schedule& globalSchedule) {
   if (!std::filesystem::exists("json/schedule.json")) {
-    initSchedule();
+    initGlobalSchedule();
   }
-  // Write back to file
+
   std::ofstream outFile("json/schedule.json");
   if (!outFile.is_open()) {
-    throw(std::runtime_error("Error writing to schedule file."));
+    throw(std::runtime_error("Error writing to schedule file. You're fucked!"));
   }
 
-  json j = schedule;
-
+  json j = globalSchedule;
   outFile << j.dump(4) << std::endl;
-  std::cout << "schedule add complete!";
   outFile.close();
 }
 
-std::pair<dpp::snowflake, dpp::message> checkSchedule() {
-  std::pair<dpp::snowflake, dpp::message> ret;
+// this function handles the removal of the event if it exists.
+std::optional<std::pair<UserSchedule, ScheduleEntry>> checkGlobalSchedule() {
   auto now = dpp::utility::time_f();
+  Schedule globalSchedule = getGlobalSchedule();
 
-  Schedule sch = readSchedule();
-  for (auto u : sch.m_schedules) {
-    for (auto e : u.m_events) {
+  for (auto& u : globalSchedule.m_schedules) {
+    for (auto& e : u.m_events) {
       if (e.m_dateTime < now) {
-        ret.first = dpp::snowflake(u.m_snowflake);
-        ret.second = dpp::message(e.m_eventName);
+        auto retPair = std::pair<UserSchedule, ScheduleEntry>{u, e};
+        u.removeEvent(e.m_eventName);
+        return retPair;
       }
     }
   }
 
-  return ret;
+  // if we're here, no events were found!
+  return std::nullopt;
 }
 
-void scheduleAdd(const dpp::snowflake& userId, const std::string& eventString) {
-  // Parse input string
-  std::istringstream iss(eventString);
-  std::string eventName, date, time;
+UserSchedule initUserSchedule(const dpp::snowflake& userSnowflake) {
+  Schedule globalSchedule = getGlobalSchedule();
 
-  if (!(iss >> eventName >> date >> time)) {
-    throw(std::invalid_argument("Invalid input format."));
+  auto userScheduleIt = std::find_if(
+      globalSchedule.m_schedules.begin(), globalSchedule.m_schedules.end(),
+      [&](const UserSchedule& userSchedule) {
+        return userSnowflake.str() == userSchedule.m_snowflake;
+      });
+
+  if (userScheduleIt != globalSchedule.m_schedules.end()) {
+    throw(std::runtime_error(
+        "ERROR - initUserSchedule: User is already in globalSchedule."));
+  }
+  // we know for sure that there is no UserSchedule.
+  UserSchedule newUserSchedule{userSnowflake.str(),
+                               std::vector<ScheduleEntry>()};
+  globalSchedule.m_schedules.emplace_back(newUserSchedule);
+
+  setGlobalSchedule(globalSchedule);
+  return newUserSchedule;
+}
+
+UserSchedule getUserSchedule(const dpp::snowflake& userSnowflake) {
+  Schedule globalSchedule = getGlobalSchedule();
+
+  auto userScheduleIt = std::find_if(
+      globalSchedule.m_schedules.begin(), globalSchedule.m_schedules.end(),
+      [&](const UserSchedule& userSchedule) {
+        return userSnowflake.str() == userSchedule.m_snowflake;
+      });
+
+  if (userScheduleIt == globalSchedule.m_schedules.end()) {
+    return initUserSchedule(userSnowflake);
+  }
+  return *userScheduleIt;
+}
+
+void setUserSchedule(const UserSchedule& userSchedule) {
+  Schedule globalSchedule = getGlobalSchedule();
+
+  auto userScheduleIt = std::find_if(
+      globalSchedule.m_schedules.begin(), globalSchedule.m_schedules.end(),
+      [&](const UserSchedule& existingUserSchedule) {
+        return existingUserSchedule.m_snowflake == userSchedule.m_snowflake;
+      });
+
+  if (userScheduleIt != globalSchedule.m_schedules.end()) {
+    *userScheduleIt = userSchedule;
+
+  } else {
+    globalSchedule.m_schedules.emplace_back(userSchedule);
   }
 
+  setGlobalSchedule(globalSchedule);
+}
+
+time_t parseDateTime(const std::string& date, const std::string& time) {
+  // add some string santinization here, please.
+  // this is like, really bad.
   auto dateVec = dpp::utility::tokenize(date, "/");
 
   int year = std::stoi(dateVec.at(2));
@@ -127,9 +254,9 @@ void scheduleAdd(const dpp::snowflake& userId, const std::string& eventString) {
   year += 100;
 
   int month = std::stoi(dateVec.at(0));
+  month--;
 
   int day = std::stoi(dateVec.at(1));
-  day--;
 
   int realTime = std::stoi(time);
   int hours = realTime / 100;
@@ -146,62 +273,7 @@ void scheduleAdd(const dpp::snowflake& userId, const std::string& eventString) {
   datetime.tm_sec = 0;
   datetime.tm_isdst = -1;
 
-  time_t timestamp = mktime(&datetime);
-
-  Schedule sch = readSchedule();
-  ScheduleEntry newEntry{eventName, timestamp};
-
-  auto it = std::find_if(
-      sch.m_schedules.begin(), sch.m_schedules.end(),
-      [&](const UserSchedule& u) { return (u.m_snowflake == userId.str()); });
-
-  if (it != sch.m_schedules.end()) {
-    it->m_events.push_back(newEntry);
-
-  } else {
-    UserSchedule uSch;
-    uSch.m_snowflake = userId.str();
-    uSch.m_events.push_back(newEntry);
-    sch.m_schedules.push_back(uSch);
-  }
-  writeSchedule(sch);
-}
-
-void scheduleRemove(const UserSchedule& userSchedule,
-                    const ScheduleEntry& eventToRemove) {
-  Schedule sch = readSchedule();
-  auto it = std::find_if(sch.m_schedules.begin(), sch.m_schedules.end(),
-                         [&](const UserSchedule& u) {
-                           return (u.m_snowflake == userSchedule.m_snowflake);
-                         });
-}
-
-std::string scheduleShow(const dpp::snowflake& userId) {
-  Schedule sch = readSchedule();
-
-  auto it = std::find_if(
-      sch.m_schedules.begin(), sch.m_schedules.end(),
-      [&](const UserSchedule& u) { return (u.m_snowflake == userId.str()); });
-
-  std::string username = dpp::find_user(userId)->username;
-
-  if (it == sch.m_schedules.end()) {
-    throw(std::runtime_error("No events found for user " + username + "."));
-  }
-
-  std::ostringstream output;
-  output << "Schedule for " << username << ":\n";
-
-  for (const auto& event : it->m_events) {
-    std::string eventName = event.m_eventName;
-    long dateTime = event.m_dateTime;
-
-    std::string formatedDateTime =
-        dpp::utility::timestamp(dateTime, dpp::utility::tf_long_datetime);
-    output << eventName << ": " << formatedDateTime << "\n";
-  }
-
-  return output.str();
+  return mktime(&datetime);
 }
 
 }  // namespace Schedule

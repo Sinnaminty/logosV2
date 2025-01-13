@@ -5,7 +5,7 @@
 using json = nlohmann::json;
 namespace Logos {
 
-enum class mType { GOOD, BAD };
+enum class mType { GOOD, BAD, EVENT };
 
 struct Dice {
   int m_num;

@@ -1,5 +1,11 @@
 #include <Logos/Logos.h>
 #include <Logos/Schedule.h>
+#include <dpp/appcommand.h>
+#include <dpp/message.h>
+#include <dpp/misc-enum.h>
+#include <dpp/snowflake.h>
+#include <exception>
+#include <stdexcept>
 
 using json = nlohmann::json;
 using namespace Logos;
@@ -409,37 +415,54 @@ int main(int argc, const char* argv[]) {
         }
       }
 
+      ////////////////////////////////////////////////////////////////////////////////////////////
+
     } else if (event.command.get_command_name() == "schedule") {
-      std::string eventString;
-      try {
-        eventString = std::get<std::string>(event.get_parameter("add"));
-      } catch (...) {
-      }
+      const dpp::command_interaction cmdData =
+          event.command.get_command_interaction();
 
-      const dpp::snowflake userId = event.command.get_issuing_user().id;
+      // holds the name of the subcommand
+      auto subCommand = cmdData.options[0];
 
-      if (!eventString.empty()) {
+      const dpp::snowflake userSnowflake = event.command.get_issuing_user().id;
+
+      if (subCommand.name == "show") {
         try {
-          Schedule::scheduleAdd(userId, eventString);
+          auto userSchedule = Schedule::getUserSchedule(userSnowflake);
+          event.reply(
+              dpp::message(event.command.channel_id,
+                           createEmbed(mType::GOOD, userSchedule.toString())));
 
         } catch (const std::exception& e) {
           event.reply(dpp::message(event.command.channel_id,
                                    createEmbed(mType::BAD, e.what())));
-          return;
         }
-      }
 
-      try {
-        std::string resp = Schedule::scheduleShow(userId);
-
-        event.reply(dpp::message(event.command.channel_id,
-                                 createEmbed(mType::GOOD, resp)));
         return;
 
-      } catch (const std::exception& e) {
-        event.reply(dpp::message(event.command.channel_id,
-                                 createEmbed(mType::BAD, e.what())));
-        return;
+      } else if (subCommand.name == "add") {
+        if (!subCommand.options.empty()) {
+          std::string eventName = subCommand.get_value<std::string>(0);
+          std::string eventDate = subCommand.get_value<std::string>(1);
+          std::string eventTime = subCommand.get_value<std::string>(2);
+          auto userSchedule = Schedule::getUserSchedule(userSnowflake);
+
+          try {
+            userSchedule.addEvent(eventName, eventDate, eventTime);
+            Schedule::setUserSchedule(userSchedule);
+            event.reply(dpp::message(
+                event.command.channel_id,
+                createEmbed(mType::GOOD,
+                            "Event Added!\n" + userSchedule.toString())));
+          } catch (const std::exception& e) {
+            event.reply(dpp::message(event.command.channel_id,
+                                     createEmbed(mType::BAD, e.what())));
+          }
+        }
+      } else if (subCommand.name == "edit") {
+        // not yet implemented
+      } else if (subCommand.name == "remove") {
+        // not yet implemented
       }
 
       ////////////////////////////////////////////////////////////////////////////////////////////
@@ -471,15 +494,30 @@ int main(int argc, const char* argv[]) {
   bot.on_ready([&](const dpp::ready_t& event) -> void {
     bot.start_timer(
         [&](const dpp::timer& timer) {
-          auto schEvent = Schedule::checkSchedule();
-          if ((!schEvent.first.empty())) {
-            bot.log(dpp::ll_debug, "first is not empty!");
-            bot.direct_message_create(schEvent.first, schEvent.second);
-          } else {
-            bot.log(dpp::ll_debug, "first is empty!");
+          try {
+            auto schEvent = Schedule::checkGlobalSchedule();
+            if (schEvent == std::nullopt) {
+              bot.log(dpp::ll_debug,
+                      "checkGlobalSchedule: schEvent is nullopt!");
+              return;
+            }
+
+            // remember that checkGlobalSchedule will remove an event if it's
+            // present. this may not work.
+            auto userSchedule = schEvent->first;
+            auto userScheduleEntry = schEvent->second;
+            const auto userSnowflake = dpp::snowflake(userSchedule.m_snowflake);
+            bot.direct_message_create(
+                userSnowflake,
+                createEmbed(mType::EVENT, userScheduleEntry.toString()));
+
+          } catch (const std::runtime_error& e) {
+            std::cerr << e.what() << "\n";
+            return;
           }
         },
         5);
+
     if (dpp::run_once<struct clear_bot_commands>()) {
       bot.guild_bulk_command_delete(ydsGuild);
     }
@@ -546,8 +584,57 @@ int main(int argc, const char* argv[]) {
       /////////////////////////////////////////////////////////////////////////////////////////////////
 
       dpp::slashcommand schedule("schedule", "Show schedule.", bot.me.id);
-      schedule.add_option(dpp::command_option(
-          dpp::co_string, "add", "(name) (mm/dd/yy) (HHmm)", false));
+
+      schedule.add_option(
+          // For show.
+          dpp::command_option(dpp::co_sub_command, "show",
+                              "Show your schedule.")
+
+      );
+
+      schedule.add_option(
+          // For add.
+          dpp::command_option(dpp::co_sub_command, "add",
+                              "Add an event to your Schedule.")
+              .add_option(dpp::command_option(dpp::co_string, "name",
+                                              "Name of the Event.", true))
+              .add_option(dpp::command_option(dpp::co_string, "date",
+                                              "Date of the Event.", true))
+              .add_option(dpp::command_option(dpp::co_string, "time",
+                                              "Time of the Event.", true))
+
+      );
+
+      schedule.add_option(
+          // For edit.
+          dpp::command_option(dpp::co_sub_command, "edit",
+                              "Edit your schedule.")
+
+              .add_option(dpp::command_option(dpp::co_integer, "index",
+                                              "Index for the event to edit.",
+                                              true))
+
+              .add_option(dpp::command_option(dpp::co_string, "name",
+                                              "New event name.", false))
+
+              .add_option(dpp::command_option(dpp::co_string, "date",
+                                              "New date.", false))
+
+              .add_option(dpp::command_option(dpp::co_string, "time",
+                                              "New time.", false))
+
+      );
+
+      schedule.add_option(
+          // For remove.
+          dpp::command_option(dpp::co_sub_command, "remove",
+                              "Remove an event from your schedule.")
+
+              .add_option(dpp::command_option(dpp::co_integer, "index",
+                                              "Index for the event to remove.",
+                                              true))
+
+      );
 
       /////////////////////////////////////////////////////////////////////////////////////////////////
 
