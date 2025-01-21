@@ -73,197 +73,198 @@ int main(int argc, const char* argv[]) {
   });
 
   bot.on_slashcommand([&](const dpp::slashcommand_t& event) {
-    if (event.command.get_command_name() == "queue") {
-      std::string resp = "__**Current Queue:**__\n\n";
-      bool any = false;
+    if (event.command.get_command_name() == "radio") {
+      event.reply(dpp::message(
+          event.command.channel_id,
+          createEmbed(mType::BAD, "Currently being refactored, soz!")));
+      return;
+      // god this sucks..
+      const dpp::command_interaction cmdData =
+          event.command.get_command_interaction();
 
-      dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
-
-      if (v && v->voiceclient && v->voiceclient->is_ready()) {
-        std::vector<std::string> songqueue =
-            v->voiceclient->get_marker_metadata();
-
-        for (auto& s : songqueue) {
-          any = true;
-
-          if (resp.length() < 2048) {
-            resp += "🎵 " + s + "\n";
-
-          } else {
-            break;
+      auto subCommand = cmdData.options[0];
+      if (subCommand.name == "play") {
+        if (!subCommand.options.empty()) {
+          std::string link = "";
+          for (auto& param : subCommand.options) {
+            if (param.name == "link" &&
+                std::holds_alternative<std::string>(param.value)) {
+              link = std::get<std::string>(param.value);
+            }
           }
+          event.thinking(false,
+                         [&](const dpp::confirmation_callback_t& callback) {
+
+                         });
+
+          /* Get the voice channel the bot is in, in this current guild. */
+          dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
+
+          /* If the voice channel was invalid, or there is an issue with it,
+           * then tell the user. */
+          if (!v || !v->voiceclient || !v->voiceclient->is_ready()) {
+            event.edit_original_response(dpp::message(
+                event.command.channel_id,
+                createEmbed(
+                    mType::BAD,
+                    "🔇 There was an issue with getting the voice channel. "
+                    "Make sure I'm in a voice channel! :(")));
+            return;
+          }
+
+          const std::string fileName = downloadSong(link);
+          const std::vector<uint8_t> pcmData = encodeSong("music/" + fileName);
+          Carbon::getInstance().s_songQueue.emplace_back(pcmData);
+
+          v->voiceclient->insert_marker(fileName);
+
+          event.edit_original_response(dpp::message(
+              event.command.channel_id,
+              createEmbed(mType::GOOD, "🔈 Enqueued: " + fileName)));
+
+          return;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////
+
+      } else if (subCommand.name == "pause") {
+        /* Get the voice channel the bot is in, in this current guild. */
+        dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
+
+        /* If the voice channel was invalid, or there is an issue with it, then
+         * tell the user. */
+        if (!v || !v->voiceclient || !v->voiceclient->is_ready()) {
+          event.reply(dpp::message(
+              event.command.channel_id,
+              createEmbed(
+                  mType::BAD,
+                  "🔇 There was an issue with getting the voice channel. "
+                  "Make sure I'm in a voice channel! :(")));
+          return;
+        }
+
+        /* If the track is playing
+         * pause. */
+        bot.log(dpp::loglevel::ll_debug,
+                "is_playing = " + std::to_string(v->voiceclient->is_playing()));
+        if (!v->voiceclient->is_paused()) {
+          v->voiceclient->pause_audio(true);
+          event.reply(dpp::message(
+              event.command.channel_id,
+              createEmbed(
+                  mType::GOOD,
+                  "⏯️ Pausing track: " + Carbon::getInstance().s_currentSong)));
+          return;
+
+        } else {
+          v->voiceclient->pause_audio(false);
+          event.reply(dpp::message(
+              event.command.channel_id,
+              createEmbed(mType::GOOD,
+                          "⏯️ Unpausing track: " +
+                              Carbon::getInstance().s_currentSong)));
+          return;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////
+
+      } else if (subCommand.name == "stop") {
+        dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
+
+        if (v && v->voiceclient && v->voiceclient->is_ready()) {
+          event.reply(
+              dpp::message(event.command.channel_id,
+                           createEmbed(mType::GOOD, "⏯️ Leaving voice... ")));
+
+          event.from->disconnect_voice(event.command.guild_id);
+          return;
+
+        } else {
+          event.reply(dpp::message(
+              event.command.channel_id,
+              createEmbed(mType::BAD, "⚠️ I'm not in a voice channel, dork.")));
+          return;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////
+
+      } else if (subCommand.name == "skip") {
+        dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
+
+        if (v && v->voiceclient && v->voiceclient->is_ready() &&
+            v->voiceclient->get_tracks_remaining() > 0) {
+          v->voiceclient->skip_to_next_marker();
+          event.reply(dpp::message(
+              event.command.channel_id,
+              createEmbed(
+                  mType::GOOD,
+                  "⏯️  Now playing: " + Carbon::getInstance().s_currentSong)));
+
+          return;
+
+        } else {
+          event.reply(dpp::message(
+              event.command.channel_id,
+              createEmbed(mType::BAD, "⚠️No song to skip... I have nothing!")));
+          return;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////
+
+      } else if (subCommand.name == "queue") {
+        std::string resp = "__**Current Queue:**__\n\n";
+        bool any = false;
+
+        dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
+
+        if (v && v->voiceclient && v->voiceclient->is_ready()) {
+          std::vector<std::string> songqueue =
+              v->voiceclient->get_marker_metadata();
+
+          for (auto& s : songqueue) {
+            any = true;
+
+            if (resp.length() < 2048) {
+              resp += "🎵 " + s + "\n";
+
+            } else {
+              break;
+            }
+          }
+        }
+
+        if (!any) {
+          event.reply(dpp::message(
+              event.command.channel_id,
+              createEmbed(mType::BAD, "⚠️ The queue is empty, fool")));
+
+        } else {
+          event.reply(dpp::message(event.command.channel_id,
+                                   createEmbed(mType::GOOD, resp)));
+        }
+
+        ///////////////////////////////////////////////////////////////////////////
+
+      } else if (subCommand.name == "np") {
+        dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
+
+        if (v && v->voiceclient && v->voiceclient->is_ready() &&
+            v->voiceclient->get_tracks_remaining() > 0) {
+          event.reply(dpp::message(
+              event.command.channel_id,
+              createEmbed(mType::GOOD,
+                          "⏯️ Currently playing: " +
+                              Carbon::getInstance().s_currentSong)));
+
+        } else {
+          event.reply(dpp::message(
+              event.command.channel_id,
+              createEmbed(mType::BAD,
+                          "...No sounds here except crickets... 🦗")));
         }
       }
 
-      if (!any) {
-        event.reply(dpp::message(
-            event.command.channel_id,
-            createEmbed(mType::BAD, "⚠️ The queue is empty, fool")));
-        return;
-
-      } else {
-        event.reply(dpp::message(event.command.channel_id,
-                                 createEmbed(mType::GOOD, resp)));
-        return;
-      }
-
-      ////////////////////////////////////////////////////////////////////////////////////////////
-
-    } else if (event.command.get_command_name() == "np") {
-      dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
-
-      if (v && v->voiceclient && v->voiceclient->is_ready() &&
-          v->voiceclient->get_tracks_remaining() > 0) {
-        event.reply(dpp::message(
-            event.command.channel_id,
-            createEmbed(mType::GOOD, "⏯️ Currently playing: " +
-                                         Carbon::getInstance().s_currentSong)));
-        return;
-
-      } else {
-        event.reply(dpp::message(
-            event.command.channel_id,
-            createEmbed(mType::BAD,
-                        "...No sounds here except crickets... 🦗")));
-        return;
-      }
-
-      ////////////////////////////////////////////////////////////////////////////////////////////
-
-    } else if (event.command.get_command_name() == "skip") {
-      dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
-
-      if (v && v->voiceclient && v->voiceclient->is_ready() &&
-          v->voiceclient->get_tracks_remaining() > 0) {
-        v->voiceclient->skip_to_next_marker();
-        event.reply(dpp::message(
-            event.command.channel_id,
-            createEmbed(mType::GOOD, "⏯️  Now playing: " +
-                                         Carbon::getInstance().s_currentSong)));
-
-        return;
-
-      } else {
-        event.reply(dpp::message(
-            event.command.channel_id,
-            createEmbed(mType::BAD, "⚠️No song to skip... I have nothing!")));
-        return;
-      }
-
-      ////////////////////////////////////////////////////////////////////////////////////////////
-
-    } else if (event.command.get_command_name() == "stop") {
-      dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
-
-      if (v && v->voiceclient && v->voiceclient->is_ready()) {
-        event.reply(
-            dpp::message(event.command.channel_id,
-                         createEmbed(mType::GOOD, "⏯️ Leaving voice... ")));
-
-        event.from->disconnect_voice(event.command.guild_id);
-        return;
-
-      } else {
-        event.reply(dpp::message(
-            event.command.channel_id,
-            createEmbed(mType::BAD, "⚠️ I'm not in a voice channel, dork.")));
-        return;
-      }
-
-      ////////////////////////////////////////////////////////////////////////////////////////////
-
-    } else if (event.command.get_command_name() == "join") {
-      dpp::guild* g = dpp::find_guild(event.command.guild_id);
-
-      /* Attempt to connect to a voice channel, returns false if we fail to
-       * connect. */
-      if (!g->connect_member_voice(event.command.get_issuing_user().id)) {
-        event.reply(dpp::message(
-            event.command.channel_id,
-            createEmbed(mType::BAD,
-                        "🔇 You don't seem to be on a voice channel! :(")));
-        return;
-      }
-
-      /* Tell the user we joined their channel. */
-      event.reply(
-          dpp::message(event.command.channel_id,
-                       createEmbed(mType::GOOD, "🔈 Connecting to voice...")));
-
-      ////////////////////////////////////////////////////////////////////////////////////////////
-
-    } else if (event.command.get_command_name() == "play") {
-      event.thinking(false, [&](const dpp::confirmation_callback_t& callback) {
-
-      });
-
-      /* Get the voice channel the bot is in, in this current guild. */
-      dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
-
-      /* If the voice channel was invalid, or there is an issue with it, then
-       * tell the user. */
-      if (!v || !v->voiceclient || !v->voiceclient->is_ready()) {
-        event.edit_original_response(dpp::message(
-            event.command.channel_id,
-            createEmbed(mType::BAD,
-                        "🔇 There was an issue with getting the voice channel. "
-                        "Make sure I'm in a voice channel! :(")));
-        return;
-      }
-
-      const std::string link =
-          std::get<std::string>(event.get_parameter("link"));
-      const std::string fileName = downloadSong(link);
-      const std::vector<uint8_t> pcmData = encodeSong("music/" + fileName);
-      Carbon::getInstance().s_songQueue.emplace_back(pcmData);
-
-      v->voiceclient->insert_marker(fileName);
-
-      event.edit_original_response(
-          dpp::message(event.command.channel_id,
-                       createEmbed(mType::GOOD, "🔈 Enqueued: " + fileName)));
-
-      return;
-
-      ////////////////////////////////////////////////////////////////////////////////////////////
-
-    } else if (event.command.get_command_name() == "pause") {
-      /* Get the voice channel the bot is in, in this current guild. */
-      dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
-
-      /* If the voice channel was invalid, or there is an issue with it, then
-       * tell the user. */
-      if (!v || !v->voiceclient || !v->voiceclient->is_ready()) {
-        event.reply(dpp::message(
-            event.command.channel_id,
-            createEmbed(mType::BAD,
-                        "🔇 There was an issue with getting the voice channel. "
-                        "Make sure I'm in a voice channel! :(")));
-        return;
-      }
-
-      /* If the track is playing
-       * pause. */
-      bot.log(dpp::loglevel::ll_debug,
-              "is_playing = " + std::to_string(v->voiceclient->is_playing()));
-      if (!v->voiceclient->is_paused()) {
-        v->voiceclient->pause_audio(true);
-        event.reply(dpp::message(
-            event.command.channel_id,
-            createEmbed(mType::GOOD, "⏯️ Pausing track: " +
-                                         Carbon::getInstance().s_currentSong)));
-        return;
-
-      } else {
-        v->voiceclient->pause_audio(false);
-        event.reply(dpp::message(
-            event.command.channel_id,
-            createEmbed(mType::GOOD, "⏯️ Unpausing track: " +
-                                         Carbon::getInstance().s_currentSong)));
-        return;
-      }
-
-      ////////////////////////////////////////////////////////////////////////////////////////////
+      ///////////////////////////////////////////////////////////////////////////
 
     } else if (event.command.get_command_name() == "roll") {
       try {
@@ -290,6 +291,23 @@ int main(int argc, const char* argv[]) {
       event.thinking(false, [&](const dpp::confirmation_callback_t& callback) {
 
       });
+
+      dpp::guild* g = dpp::find_guild(event.command.guild_id);
+
+      /* Attempt to connect to a voice channel, returns false if we fail to
+       * connect. */
+      if (!g->connect_member_voice(event.command.get_issuing_user().id)) {
+        event.reply(dpp::message(
+            event.command.channel_id,
+            createEmbed(mType::BAD,
+                        "🔇 You don't seem to be on a voice channel! :(")));
+        return;
+      }
+
+      /* Tell the user we joined their channel. */
+      event.edit_original_response(
+          dpp::message(event.command.channel_id,
+                       createEmbed(mType::GOOD, "🔈 Connecting to voice...")));
 
       const std::string sayString =
           std::get<std::string>(event.get_parameter("text"));
@@ -354,6 +372,10 @@ int main(int argc, const char* argv[]) {
       ////////////////////////////////////////////////////////////////////////////////////////////
 
     } else if (event.command.get_command_name() == "transcribe") {
+      event.reply(dpp::message(
+          event.command.channel_id,
+          createEmbed(mType::BAD, "Currently being refactored, soz!")));
+      return;
       event.thinking(false, [&](const dpp::confirmation_callback_t& callback) {
 
       });
@@ -607,60 +629,54 @@ int main(int argc, const char* argv[]) {
       /// radio commands
       /////////////////////////////////////////////////////////////////////////////////////////////////
 
-      dpp::slashcommand join("join", "Joins the user's vc.", bot.me.id);
+      dpp::slashcommand radio("radio", "Interact with the Radio.", bot.me.id);
+
+      radio.add_option(
+          // For play.
+          dpp::command_option(dpp::co_sub_command, "play", "Play a song.")
+              .add_option(dpp::command_option(
+                  dpp::co_string, "link", "Youtube link to the song.", true))
+
+      );
+
+      radio.add_option(
+          // For pause.
+          dpp::command_option(dpp::co_sub_command, "pause",
+                              "Pause/Plays the current track.")
+
+      );
+
+      radio.add_option(
+          // For stop.
+          dpp::command_option(
+              dpp::co_sub_command, "stop",
+              "Stops the music, clears the queue and leaves vc.")
+
+      );
+
+      radio.add_option(
+          // For skip.
+          dpp::command_option(dpp::co_sub_command, "skip",
+                              "Skips the currently playing song.")
+
+      );
+
+      radio.add_option(
+          // For queue.
+          dpp::command_option(dpp::co_sub_command, "queue",
+                              "Shows the current music queue.")
+
+      );
+
+      radio.add_option(
+          // For now playing.
+          dpp::command_option(dpp::co_sub_command, "np",
+                              "Shows the current playing song.")
+
+      );
 
       /////////////////////////////////////////////////////////////////////////////////////////////////
-
-      dpp::slashcommand queue("queue", "Show music queue.", bot.me.id);
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////
-
-      dpp::slashcommand np("np", "Show currently playing song.", bot.me.id);
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////
-
-      dpp::slashcommand skip("skip", "Skip to the next song in queue.",
-                             bot.me.id);
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////
-
-      dpp::slashcommand pause("pause", "Toggle pause the music.", bot.me.id);
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////
-
-      dpp::slashcommand stop(
-          "stop", "Stop playing, clear queue and leave voice channel.",
-          bot.me.id);
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////
-
-      dpp::slashcommand play("play", "Play a song.", bot.me.id);
-      play.add_option((dpp::command_option(dpp::co_string, "link",
-                                           "The link to the song.", true)));
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////
-      /// other commands
-      /////////////////////////////////////////////////////////////////////////////////////////////////
-
-      dpp::slashcommand roll(
-          "roll", "Roll any specified number of x sided die.", bot.me.id);
-      roll.add_option(dpp::command_option(
-          dpp::co_string, "roll", "Roll String (ex. '1d20 2d10 3d6')", true));
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////
-
-      dpp::slashcommand say("say", "Make me speak.(Moon Base Alpha friendly.)",
-                            bot.me.id);
-      say.add_option((dpp::command_option(dpp::co_string, "text",
-                                          "What I should say.", true)));
-      say.add_option((dpp::command_option(
-          dpp::co_boolean, "dl",
-          "Download this file and send it to the channel?", false)));
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////
-
-      dpp::slashcommand transcribe("transcribe", "Record VC.", bot.me.id);
-
+      /// Schedule commands
       /////////////////////////////////////////////////////////////////////////////////////////////////
 
       dpp::slashcommand schedule("schedule", "Show schedule.", bot.me.id);
@@ -717,6 +733,29 @@ int main(int argc, const char* argv[]) {
       );
 
       /////////////////////////////////////////////////////////////////////////////////////////////////
+      /// other commands
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+
+      dpp::slashcommand roll(
+          "roll", "Roll any specified number of x sided die.", bot.me.id);
+      roll.add_option(dpp::command_option(
+          dpp::co_string, "roll", "Roll String (ex. '1d20 2d10 3d6')", true));
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+
+      dpp::slashcommand say("say", "Make me speak.(Moon Base Alpha friendly.)",
+                            bot.me.id);
+      say.add_option((dpp::command_option(dpp::co_string, "text",
+                                          "What I should say.", true)));
+      say.add_option((dpp::command_option(
+          dpp::co_boolean, "dl",
+          "Download this file and send it to the channel?", false)));
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+
+      dpp::slashcommand transcribe("transcribe", "Record VC.", bot.me.id);
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
 
       dpp::slashcommand clear("clear", "Clears local commands in this guild",
                               bot.me.id);
@@ -724,8 +763,7 @@ int main(int argc, const char* argv[]) {
       /////////////////////////////////////////////////////////////////////////////////////////////////
 
       const std::vector<dpp::slashcommand> commands = {
-          join, queue, np,  skip,       pause,    stop,
-          play, roll,  say, transcribe, schedule, clear};
+          radio, roll, say, transcribe, schedule, clear};
 
       bot.guild_bulk_command_create(commands, ydsGuild);
 
