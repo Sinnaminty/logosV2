@@ -95,6 +95,24 @@ void UserSchedule::removeEvent(const int& index) {
   setUserSchedule(*this);
 }
 
+void UserSchedule::editEvent(const int& index,
+                             const std::string& name,
+                             const std::string& date,
+                             const std::string& time) {
+  if (index < 1 || index > m_events.size()) {
+    throw(std::runtime_error("ERROR - UserSchedule::editEvent: Index OOB"));
+  }
+  auto& event = m_events[index - 1];
+  if (name != "") {
+    event.m_eventName = name;
+  }
+  if (date != "" && time != "") {
+    event.m_dateTime = parseDateTime(date, time);
+  }
+  this->sort();
+  setUserSchedule(*this);
+}
+
 void UserSchedule::sort() {
   std::sort(m_events.begin(), m_events.end(),
             [](const ScheduleEntry& a, const ScheduleEntry& b) {

@@ -1,16 +1,7 @@
 {
     "schedules": [
         {
-            "events": [
-                {
-                    "dateTime": 1737485280,
-                    "eventName": "Meow2"
-                },
-                {
-                    "dateTime": 1737485340,
-                    "eventName": "Meow"
-                }
-            ],
+            "events": [],
             "snowflake": "326389428593623040"
         }
     ]

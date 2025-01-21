@@ -27,6 +27,11 @@ struct UserSchedule {
 
   void removeEvent(const std::string& name);
   void removeEvent(const int& index);
+
+  void editEvent(const int& index,
+                 const std::string& name,
+                 const std::string& date,
+                 const std::string& time);
   void sort();
 };
 

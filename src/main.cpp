@@ -6,9 +6,12 @@
 #include <dpp/snowflake.h>
 #include <exception>
 #include <stdexcept>
+#include <variant>
 
 using json = nlohmann::json;
 using namespace Logos;
+
+const int SCHEDULE_FREQUENCY = 5;
 
 int main(int argc, const char* argv[]) {
   json configDocument;
@@ -287,15 +290,15 @@ int main(int argc, const char* argv[]) {
       event.thinking(false, [&](const dpp::confirmation_callback_t& callback) {
 
       });
-      bool dl = false;
-      try {
-        dl = std::get<bool>(event.get_parameter("dl"));
-      } catch (const std::exception& e) {
-        bot.log(dpp::loglevel::ll_error, e.what());
-      }
 
       const std::string sayString =
           std::get<std::string>(event.get_parameter("text"));
+
+      auto paramDl = event.get_parameter("dl");
+      bool dl = false;
+      if (std::holds_alternative<bool>(paramDl)) {
+        dl = std::get<bool>(paramDl);
+      }
 
       if (!dl) {
         /* Get the voice channel the bot is in, in this current guild. */
@@ -442,10 +445,25 @@ int main(int argc, const char* argv[]) {
 
       } else if (subCommand.name == "add") {
         if (!subCommand.options.empty()) {
-          std::string eventName = subCommand.get_value<std::string>(0);
-          std::string eventDate = subCommand.get_value<std::string>(1);
-          std::string eventTime = subCommand.get_value<std::string>(2);
+          std::string eventName = "";
+          std::string eventDate = "";
+          std::string eventTime = "";
           auto userSchedule = Schedule::getUserSchedule(userSnowflake);
+
+          for (auto& param : subCommand.options) {
+            if (param.name == "name" &&
+                std::holds_alternative<std::string>(param.value)) {
+              eventName = std::get<std::string>(param.value);
+
+            } else if (param.name == "date" &&
+                       std::holds_alternative<std::string>(param.value)) {
+              eventDate = std::get<std::string>(param.value);
+
+            } else if (param.name == "time" &&
+                       std::holds_alternative<std::string>(param.value)) {
+              eventTime = std::get<std::string>(param.value);
+            }
+          }
 
           try {
             userSchedule.addEvent(eventName, eventDate, eventTime);
@@ -454,19 +472,66 @@ int main(int argc, const char* argv[]) {
                 event.command.channel_id,
                 createEmbed(mType::GOOD,
                             "Event Added!\n" + userSchedule.toString())));
+
           } catch (const std::exception& e) {
             event.reply(dpp::message(event.command.channel_id,
                                      createEmbed(mType::BAD, e.what())));
           }
         }
+
       } else if (subCommand.name == "edit") {
         // gonna do remove first
         if (!subCommand.options.empty()) {
+          int index = 0;
+          std::string newName = "";
+          std::string newDate = "";
+          std::string newTime = "";
+          for (auto& param : subCommand.options) {
+            if (param.name == "index" &&
+                std::holds_alternative<int64_t>(param.value)) {
+              index = std::get<int64_t>(param.value);
+
+            } else if (param.name == "name" &&
+                       std::holds_alternative<std::string>(param.value)) {
+              newName = std::get<std::string>(param.value);
+
+            } else if (param.name == "date" &&
+                       std::holds_alternative<std::string>(param.value)) {
+              newDate = std::get<std::string>(param.value);
+
+            } else if (param.name == "time" &&
+                       std::holds_alternative<std::string>(param.value)) {
+              newTime = std::get<std::string>(param.value);
+            }
+          }
+
+          auto userSchedule = Schedule::getUserSchedule(userSnowflake);
+          try {
+            userSchedule.editEvent(index, newName, newDate, newTime);
+
+          } catch (const std::exception& e) {
+            event.reply(dpp::message(event.command.channel_id,
+                                     createEmbed(mType::BAD, e.what())));
+          }
+
+          event.reply(dpp::message(
+              event.command.channel_id,
+              createEmbed(mType::GOOD,
+                          "Event Edited!\n" + userSchedule.toString())));
         }
+
       } else if (subCommand.name == "remove") {
         if (!subCommand.options.empty()) {
-          auto index = subCommand.get_value<int64_t>(0);
+          int index = 0;
           auto userSchedule = Schedule::getUserSchedule(userSnowflake);
+
+          for (auto& param : subCommand.options) {
+            if (param.name == "index" &&
+                std::holds_alternative<int64_t>(param.value)) {
+              index = std::get<int64_t>(param.value);
+            }
+          }
+
           try {
             userSchedule.removeEvent(index);
           } catch (const std::exception& e) {
@@ -517,8 +582,8 @@ int main(int argc, const char* argv[]) {
               return;
             }
 
-            // remember that checkGlobalSchedule will remove an event if it's
-            // present. this may not work.
+            // remember that checkGlobalSchedule will remove an event if
+            // it's present. this may not work.
             auto userSchedule = schEvent->first;
             auto userScheduleEntry = schEvent->second;
             const auto userSnowflake = dpp::snowflake(userSchedule.m_snowflake);
@@ -527,11 +592,11 @@ int main(int argc, const char* argv[]) {
                 createEmbed(mType::EVENT, userScheduleEntry.toString()));
 
           } catch (const std::runtime_error& e) {
-            std::cerr << e.what() << "\n";
+            bot.log(dpp::ll_error, e.what());
             return;
           }
         },
-        5);
+        SCHEDULE_FREQUENCY);
 
     if (dpp::run_once<struct clear_bot_commands>()) {
       bot.guild_bulk_command_delete(ydsGuild);
