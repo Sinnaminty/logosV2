@@ -449,7 +449,7 @@ int main(int argc, const char* argv[]) {
 
           try {
             userSchedule.addEvent(eventName, eventDate, eventTime);
-            Schedule::setUserSchedule(userSchedule);
+
             event.reply(dpp::message(
                 event.command.channel_id,
                 createEmbed(mType::GOOD,
@@ -460,9 +460,16 @@ int main(int argc, const char* argv[]) {
           }
         }
       } else if (subCommand.name == "edit") {
-        // not yet implemented
+        // gonna do remove first
+        if (!subCommand.options.empty()) {
+        }
       } else if (subCommand.name == "remove") {
-        // not yet implemented
+        if (!subCommand.options.empty()) {
+          // NOTE: bugged ffs
+          auto index = subCommand.get_value<int>(0);
+          // remove event based on index
+          // need indexed events first.. time to sort
+        }
       }
 
       ////////////////////////////////////////////////////////////////////////////////////////////

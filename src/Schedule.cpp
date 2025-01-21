@@ -11,6 +11,7 @@
 using json = nlohmann::json;
 
 namespace Schedule {
+
 /////////////////////////////////////////////////////
 // ScheduleEntry
 void from_json(const json& j, ScheduleEntry& entry) {
@@ -51,8 +52,10 @@ std::string UserSchedule::toString() const {
          << dpp::find_user(dpp::snowflake(this->m_snowflake))->username
          << ":\n";
 
+  int i = 1;
   for (const auto& event : this->m_events) {
-    output << event.toString();
+    output << i << ". " << event.toString();
+    i++;
   }
 
   return output.str();
@@ -62,6 +65,7 @@ void UserSchedule::addEvent(const std::string& name,
                             const std::string& date,
                             const std::string& time) {
   m_events.push_back(ScheduleEntry{name, parseDateTime(date, time)});
+  this->sort();
   setUserSchedule(*this);
 }
 
@@ -76,7 +80,15 @@ void UserSchedule::removeEvent(const std::string& name) {
 
   // we good, ain't no pressure
   m_events.erase(eventIt);
+  this->sort();
   setUserSchedule(*this);
+}
+
+void UserSchedule::sort() {
+  std::sort(m_events.begin(), m_events.end(),
+            [](const ScheduleEntry& a, const ScheduleEntry& b) {
+              return a.m_dateTime > b.m_dateTime;
+            });
 }
 
 /////////////////////////////////////////////////////
@@ -90,6 +102,11 @@ void to_json(json& j, const Schedule& schedule) {
   j = json{{"schedules", schedule.m_schedules}};
 }
 
+void Schedule::sort() {
+  std::for_each(m_schedules.begin(), m_schedules.end(),
+                [&](UserSchedule& userSchedule) { userSchedule.sort(); });
+}
+
 /////////////////////////////////////////////////////
 /// Front end functions
 
@@ -98,8 +115,8 @@ void scheduleAdd(const dpp::snowflake& snowflake,
                  const std::string& date,
                  const std::string& time) {
   UserSchedule userSchedule = getUserSchedule(snowflake);
+  // automatically sorts and sets
   userSchedule.addEvent(name, date, time);
-  setUserSchedule(userSchedule);
 }
 
 void scheduleEdit(const dpp::snowflake& snowflake,
@@ -111,7 +128,6 @@ void scheduleRemove(const dpp::snowflake& snowflake,
                     const std::string& name,
                     const std::string& date,
                     const std::string& time) {
-  // not yet implemented
   UserSchedule userSchedule = getUserSchedule(snowflake);
 }
 
@@ -136,6 +152,7 @@ Schedule initGlobalSchedule() {
   return Schedule();
 }
 
+// getters should always assume that the list is sorted
 Schedule getGlobalSchedule() {
   if (!std::filesystem::exists("json/schedule.json")) {
     return initGlobalSchedule();

@@ -26,10 +26,12 @@ struct UserSchedule {
                 const std::string& time);
 
   void removeEvent(const std::string& name);
+  void sort();
 };
 
 struct Schedule {
   std::vector<UserSchedule> m_schedules;
+  void sort();
 };
 
 // front end functions
