@@ -465,10 +465,18 @@ int main(int argc, const char* argv[]) {
         }
       } else if (subCommand.name == "remove") {
         if (!subCommand.options.empty()) {
-          // NOTE: bugged ffs
-          auto index = subCommand.get_value<int>(0);
-          // remove event based on index
-          // need indexed events first.. time to sort
+          auto index = subCommand.get_value<int64_t>(0);
+          auto userSchedule = Schedule::getUserSchedule(userSnowflake);
+          try {
+            userSchedule.removeEvent(index);
+          } catch (const std::exception& e) {
+            event.reply(dpp::message(event.command.channel_id,
+                                     createEmbed(mType::BAD, e.what())));
+          }
+          event.reply(dpp::message(
+              event.command.channel_id,
+              createEmbed(mType::GOOD,
+                          "Event Deleted!\n" + userSchedule.toString())));
         }
       }
 

@@ -75,7 +75,8 @@ void UserSchedule::removeEvent(const std::string& name) {
       [&](const ScheduleEntry& entry) { return entry.m_eventName == name; });
 
   if (eventIt == m_events.end()) {
-    throw(std::runtime_error("ERROR - scheduleRemove: Event does not exist."));
+    throw(std::runtime_error(
+        "ERROR - UserSchedule::removeEvent: Event does not exist."));
   }
 
   // we good, ain't no pressure
@@ -84,11 +85,22 @@ void UserSchedule::removeEvent(const std::string& name) {
   setUserSchedule(*this);
 }
 
+void UserSchedule::removeEvent(const int& index) {
+  if (index < 1 || index > m_events.size()) {
+    throw(std::runtime_error("ERROR - UserSchedule::removeEvent: Index OOB"));
+  }
+  // assuming that 1 is the beginning
+  m_events.erase(m_events.begin() + index - 1);
+  this->sort();
+  setUserSchedule(*this);
+}
+
 void UserSchedule::sort() {
   std::sort(m_events.begin(), m_events.end(),
             [](const ScheduleEntry& a, const ScheduleEntry& b) {
-              return a.m_dateTime > b.m_dateTime;
+              return a.m_dateTime < b.m_dateTime;
             });
+  setUserSchedule(*this);
 }
 
 /////////////////////////////////////////////////////
