@@ -24,14 +24,9 @@ int main(int argc, const char* argv[]) {
   s >> sDocument;
 
   dpp::snowflake ydsGuild(configDocument["yds-guild-id"]);
-  dpp::snowflake watGuild(configDocument["wat-guild-id"]);
-  dpp::snowflake bosGuild(configDocument["bos-guild-id"]);
-  dpp::snowflake tvvGuild(configDocument["tvv-guild-id"]);
-  dpp::snowflake tnbGuild(configDocument["tnb-guild-id"]);
-
-  dpp::cluster bot(sDocument["bot-token"], dpp::i_default_intents |
-                                               dpp::i_guild_members |
-                                               dpp::i_message_content);
+  dpp::cluster bot(sDocument["test-bot-token"], dpp::i_default_intents |
+                                                    dpp::i_guild_members |
+                                                    dpp::i_message_content);
 
   bot.on_log(dpp::utility::cout_logger());
 
@@ -603,7 +598,8 @@ int main(int argc, const char* argv[]) {
         SCHEDULE_FREQUENCY);
 
     if (dpp::run_once<struct clear_bot_commands>()) {
-      bot.global_bulk_command_delete();
+      // bot.global_bulk_command_delete();
+      bot.guild_bulk_command_delete(ydsGuild);
     }
 
     if (dpp::run_once<struct register_bot_commands>()) {
@@ -742,7 +738,8 @@ int main(int argc, const char* argv[]) {
       const std::vector<dpp::slashcommand> commands = {radio, roll, say,
                                                        transcribe, schedule};
 
-      bot.global_bulk_command_create(commands);
+      // bot.global_bulk_command_create(commands);
+      bot.guild_bulk_command_create(commands, ydsGuild);
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
     }
   });
