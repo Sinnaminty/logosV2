@@ -24,6 +24,10 @@ int main(int argc, const char* argv[]) {
   s >> sDocument;
 
   dpp::snowflake ydsGuild(configDocument["yds-guild-id"]);
+  dpp::snowflake watGuild(configDocument["wat-guild-id"]);
+  dpp::snowflake bosGuild(configDocument["bos-guild-id"]);
+  dpp::snowflake tvvGuild(configDocument["tvv-guild-id"]);
+  dpp::snowflake tnbGuild(configDocument["tnb-guild-id"]);
 
   dpp::cluster bot(sDocument["bot-token"], dpp::i_default_intents |
                                                dpp::i_guild_members |
@@ -600,6 +604,10 @@ int main(int argc, const char* argv[]) {
 
     if (dpp::run_once<struct clear_bot_commands>()) {
       bot.guild_bulk_command_delete(ydsGuild);
+      bot.guild_bulk_command_delete(watGuild);
+      bot.guild_bulk_command_delete(bosGuild);
+      bot.guild_bulk_command_delete(tvvGuild);
+      bot.guild_bulk_command_delete(tnbGuild);
     }
 
     if (dpp::run_once<struct register_bot_commands>()) {
