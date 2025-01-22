@@ -11,7 +11,7 @@
 using json = nlohmann::json;
 using namespace Logos;
 
-const int SCHEDULE_FREQUENCY = 5;
+const int SCHEDULE_FREQUENCY = 60;
 
 int main(int argc, const char* argv[]) {
   json configDocument;
@@ -25,9 +25,9 @@ int main(int argc, const char* argv[]) {
 
   dpp::snowflake ydsGuild(configDocument["yds-guild-id"]);
 
-  dpp::cluster bot(sDocument["test-bot-token"], dpp::i_default_intents |
-                                                    dpp::i_guild_members |
-                                                    dpp::i_message_content);
+  dpp::cluster bot(sDocument["bot-token"], dpp::i_default_intents |
+                                               dpp::i_guild_members |
+                                               dpp::i_message_content);
 
   bot.on_log(dpp::utility::cout_logger());
 
@@ -566,28 +566,6 @@ int main(int argc, const char* argv[]) {
                           "Event Deleted!\n" + userSchedule.toString())));
         }
       }
-
-      ////////////////////////////////////////////////////////////////////////////////////////////
-
-    } else if (event.command.get_command_name() == "clear") {
-      bot.guild_bulk_command_delete(
-          event.command.get_guild().id,
-          [&](const dpp::confirmation_callback_t& callback) {
-            if (callback.is_error()) {
-              event.reply(dpp::message(
-                  event.command.channel_id,
-                  createEmbed(mType::BAD,
-                              callback.get_error().human_readable)));
-
-            } else {
-              event.reply(dpp::message(
-                  event.command.channel_id,
-                  createEmbed(
-                      mType::GOOD,
-                      "Deleted commands for Guild: " +
-                          dpp::find_guild(event.command.guild_id)->name)));
-            }
-          });
     }
   });
 
@@ -757,15 +735,10 @@ int main(int argc, const char* argv[]) {
 
       /////////////////////////////////////////////////////////////////////////////////////////////////
 
-      dpp::slashcommand clear("clear", "Clears local commands in this guild",
-                              bot.me.id);
+      const std::vector<dpp::slashcommand> commands = {radio, roll, say,
+                                                       transcribe, schedule};
 
-      /////////////////////////////////////////////////////////////////////////////////////////////////
-
-      const std::vector<dpp::slashcommand> commands = {
-          radio, roll, say, transcribe, schedule, clear};
-
-      bot.guild_bulk_command_create(commands, ydsGuild);
+      // bot.guild_bulk_command_create(commands, ydsGuild);
 
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
     }
