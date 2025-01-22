@@ -603,11 +603,7 @@ int main(int argc, const char* argv[]) {
         SCHEDULE_FREQUENCY);
 
     if (dpp::run_once<struct clear_bot_commands>()) {
-      bot.guild_bulk_command_delete(ydsGuild);
-      bot.guild_bulk_command_delete(watGuild);
-      bot.guild_bulk_command_delete(bosGuild);
-      bot.guild_bulk_command_delete(tvvGuild);
-      bot.guild_bulk_command_delete(tnbGuild);
+      bot.global_bulk_command_delete();
     }
 
     if (dpp::run_once<struct register_bot_commands>()) {
@@ -746,8 +742,7 @@ int main(int argc, const char* argv[]) {
       const std::vector<dpp::slashcommand> commands = {radio, roll, say,
                                                        transcribe, schedule};
 
-      // bot.guild_bulk_command_create(commands, ydsGuild);
-
+      bot.global_bulk_command_create(commands);
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
     }
   });
