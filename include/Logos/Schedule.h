@@ -41,26 +41,6 @@ struct Schedule {
   void sort();
 };
 
-// front end functions
-void scheduleAdd(const dpp::snowflake& snowflake,
-                 const std::string& name,
-                 const std::string& date,
-                 const std::string& time);
-
-void scheduleEdit(const dpp::snowflake& snowflake,
-                  const std::string& name,
-                  const std::string& date,
-                  const std::string& time);
-
-void scheduleRemove(const dpp::snowflake& snowflake,
-                    const std::string& name,
-                    const std::string& date,
-                    const std::string& time);
-
-void scheduleSetTimezone(const dpp::snowflake& snowflake,
-                         const std::string& timezone);
-
-// back end functions
 Schedule initGlobalSchedule();
 Schedule getGlobalSchedule();
 void setGlobalSchedule(const Schedule& globalSchedule);
@@ -71,5 +51,7 @@ UserSchedule initUserSchedule(const dpp::snowflake& userSnowflake,
 UserSchedule getUserSchedule(const dpp::snowflake& userSnowflake);
 void setUserSchedule(const UserSchedule& userSchedule);
 
-time_t parseDateTime(const std::string& date, const std::string& time);
+int64_t parseDateTime(const std::string& date,
+                      const std::string& time,
+                      const std::string& timezone);
 }  // namespace Schedule

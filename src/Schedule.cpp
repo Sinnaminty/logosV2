@@ -4,9 +4,11 @@
 #include <dpp/cache.h>
 #include <dpp/snowflake.h>
 #include <algorithm>
+#include <chrono>
 #include <ctime>
 #include <fstream>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -69,7 +71,8 @@ std::string UserSchedule::toString() const {
 void UserSchedule::addEvent(const std::string& name,
                             const std::string& date,
                             const std::string& time) {
-  m_events.push_back(ScheduleEntry{name, parseDateTime(date, time)});
+  m_events.push_back(
+      ScheduleEntry{name, parseDateTime(date, time, m_timezone)});
   this->sort();
   setUserSchedule(*this);
 }
@@ -112,7 +115,7 @@ void UserSchedule::editEvent(const int& index,
     event.m_eventName = name;
   }
   if (date != "" && time != "") {
-    event.m_dateTime = parseDateTime(date, time);
+    event.m_dateTime = parseDateTime(date, time, m_timezone);
   }
   this->sort();
   setUserSchedule(*this);
@@ -141,36 +144,6 @@ void Schedule::sort() {
   std::for_each(m_schedules.begin(), m_schedules.end(),
                 [&](UserSchedule& userSchedule) { userSchedule.sort(); });
 }
-
-/////////////////////////////////////////////////////
-/// Front end functions
-
-void scheduleAdd(const dpp::snowflake& snowflake,
-                 const std::string& name,
-                 const std::string& date,
-                 const std::string& time) {
-  UserSchedule userSchedule = getUserSchedule(snowflake);
-  // automatically sorts and sets
-  userSchedule.addEvent(name, date, time);
-}
-
-void scheduleEdit(const dpp::snowflake& snowflake,
-                  const std::string& name,
-                  const std::string& date,
-                  const std::string& time) {}
-
-void scheduleRemove(const dpp::snowflake& snowflake,
-                    const std::string& name,
-                    const std::string& date,
-                    const std::string& time) {
-  UserSchedule userSchedule = getUserSchedule(snowflake);
-}
-
-void scheduleSetTimezone(const dpp::snowflake& snowflake,
-                         const std::string& timezone) {}
-
-/////////////////////////////////////////////////////
-/// Back end functions
 
 Schedule initGlobalSchedule() {
   std::ofstream outFile("json/schedule.json");
@@ -301,36 +274,31 @@ void setUserSchedule(const UserSchedule& userSchedule) {
   setGlobalSchedule(globalSchedule);
 }
 
-time_t parseDateTime(const std::string& date, const std::string& time) {
+int64_t parseDateTime(const std::string& date,
+                      const std::string& time,
+                      const std::string& timezone) {
   // add some string santinization here, please.
   // this is like, really bad.
-  auto dateVec = dpp::utility::tokenize(date, "/");
+  std::string dateTime = date + " " + time;
+  std::istringstream in{dateTime};
+  date::local_time<std::chrono::minutes> localTimePoint;
 
-  int year = std::stoi(dateVec.at(2));
+  in >> date::parse("%m/%d/%y %H%M", localTimePoint);
 
-  year += 100;
+  if (in.fail()) {
+    throw std::runtime_error(
+        "ERROR: parseDateTime: Failed to parse date time input.");
+  }
 
-  int month = std::stoi(dateVec.at(0));
-  month--;
+  auto tz = date::locate_zone(timezone);
 
-  int day = std::stoi(dateVec.at(1));
+  date::zoned_time<std::chrono::minutes> userZonedTime{tz, localTimePoint};
 
-  int realTime = std::stoi(time);
-  int hours = realTime / 100;
-  int minutes = realTime % 100;
+  auto utcTime = userZonedTime.get_sys_time();
 
-  // Convert date and time to unix timestamp
-  struct tm datetime;
-
-  datetime.tm_year = year;
-  datetime.tm_mon = month;
-  datetime.tm_mday = day;
-  datetime.tm_hour = hours;
-  datetime.tm_min = minutes;
-  datetime.tm_sec = 0;
-  datetime.tm_isdst = -1;
-
-  return mktime(&datetime);
+  return std::chrono::duration_cast<std::chrono::seconds>(
+             utcTime.time_since_epoch())
+      .count();
 }
 
 }  // namespace Schedule
