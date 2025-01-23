@@ -25,13 +25,21 @@ find_package(Threads REQUIRED)
 find_package(DPP REQUIRED)
 find_package(OpenSSL REQUIRED)
 
+include(FetchContent)
+
+FetchContent_Declare(
+  date
+  GIT_REPOSITORY https://github.com/HowardHinnant/date.git
+  GIT_TAG master
+)
+
+FetchContent_MakeAvailable(date)
+
 target_include_directories(${BOT_NAME} PUBLIC
 
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${DPP_INCLUDE_DIR}
-
     ${OPENSSL_INCLUDE_DIR}
-
 )
 
 target_link_libraries(${BOT_NAME}
@@ -42,5 +50,7 @@ target_link_libraries(${BOT_NAME}
     ${DPP_LIBRARIES}
     ${OPENSSL_CRYPTO_LIBRARY}
     ${OPENSSL_SSL_LIBRARY}
+    date::date
 )
 
+target_compile_definitions(${BOT_NAME} PUBLIC HAS_REMOTE_API=1)

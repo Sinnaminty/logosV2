@@ -1,4 +1,6 @@
 #include <Logos/Schedule.h>
+#include <date/date.h>
+#include <date/tz.h>
 #include <dpp/cache.h>
 #include <dpp/snowflake.h>
 #include <algorithm>

@@ -58,7 +58,7 @@ void scheduleRemove(const dpp::snowflake& snowflake,
                     const std::string& time);
 
 void scheduleSetTimezone(const dpp::snowflake& snowflake,
-                         const std::string& timezome);
+                         const std::string& timezone);
 
 // back end functions
 Schedule initGlobalSchedule();
