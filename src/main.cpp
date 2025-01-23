@@ -743,15 +743,53 @@ int main(int argc, const char* argv[]) {
           dpp::command_option(dpp::co_sub_command, "set_timezone",
                               "Set your timezone.")
 
-              .add_option(dpp::command_option(dpp::co_string, "timezone",
-                                              "Your timezone.", true)
-                              .add_choice(dpp::command_option_choice(
-                                  "ET", std::string("America/New_York")))
-                              .add_choice(dpp::command_option_choice(
-                                  "CT", std::string("America/Chicago")))
-                          // etc..
-
-                          ));
+               // North America
+            .add_choice(dpp::command_option_choice(
+                "ET", std::string("America/New_York")))
+            .add_choice(dpp::command_option_choice(
+                "CT", std::string("America/Chicago")))
+            .add_choice(dpp::command_option_choice(
+                "MT", std::string("America/Denver")))
+            .add_choice(dpp::command_option_choice(
+                "PT", std::string("America/Los_Angeles")))
+            .add_choice(dpp::command_option_choice(
+                "Alaska", std::string("America/Anchorage")))
+            .add_choice(dpp::command_option_choice(
+                "Hawaii", std::string("Pacific/Honolulu")))
+            
+            // Europe
+            .add_choice(dpp::command_option_choice(
+                "CET", std::string("Europe/Berlin")))
+            .add_choice(dpp::command_option_choice(
+                "GMT", std::string("Europe/London")))
+            .add_choice(dpp::command_option_choice(
+                "EET", std::string("Europe/Athens")))
+            
+            // Asia
+            .add_choice(dpp::command_option_choice(
+                "IST", std::string("Asia/Kolkata")))
+            .add_choice(dpp::command_option_choice(
+                "CST", std::string("Asia/Shanghai")))
+            .add_choice(dpp::command_option_choice(
+                "JST", std::string("Asia/Tokyo")))
+            
+            // Oceania
+            .add_choice(dpp::command_option_choice(
+                "AET", std::string("Australia/Sydney")))
+            .add_choice(dpp::command_option_choice(
+                "NZT", std::string("Pacific/Auckland")))
+            
+            // Africa
+            .add_choice(dpp::command_option_choice(
+                "SAST", std::string("Africa/Johannesburg")))
+            .add_choice(dpp::command_option_choice(
+                "WAT", std::string("Africa/Lagos")))
+            
+            // South America
+            .add_choice(dpp::command_option_choice(
+                "BRT", std::string("America/Sao_Paulo")))
+            .add_choice(dpp::command_option_choice(
+                "ART", std::string("America/Buenos_Aires")))));
 
       /////////////////////////////////////////////////////////////////////////////////////////////////
       /// other commands
