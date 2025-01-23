@@ -454,7 +454,6 @@ int main(int argc, const char* argv[]) {
           for (auto& param : subCommand.options) {
             if (param.name == "timezone" &&
                 std::holds_alternative<std::string>(param.value)) {
-              //
               auto userSchedule = Schedule::initUserSchedule(
                   userSnowflake, std::get<std::string>(param.value));
 
@@ -746,8 +745,13 @@ int main(int argc, const char* argv[]) {
 
               .add_option(dpp::command_option(dpp::co_string, "timezone",
                                               "Your timezone.", true)
+                              .add_choice(dpp::command_option_choice(
+                                  "ET", std::string("America/New_York")))
+                              .add_choice(dpp::command_option_choice(
+                                  "CT", std::string("America/Chicago")))
+                          // etc..
 
-                              ));
+                          ));
 
       /////////////////////////////////////////////////////////////////////////////////////////////////
       /// other commands
