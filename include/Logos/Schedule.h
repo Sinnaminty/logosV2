@@ -18,6 +18,7 @@ struct ScheduleEntry {
 struct UserSchedule {
   std::string m_snowflake;
   std::vector<ScheduleEntry> m_events;
+  std::string m_timezone;
 
   std::string toString() const;
 
@@ -56,13 +57,17 @@ void scheduleRemove(const dpp::snowflake& snowflake,
                     const std::string& date,
                     const std::string& time);
 
+void scheduleSetTimezone(const dpp::snowflake& snowflake,
+                         const std::string& timezome);
+
 // back end functions
 Schedule initGlobalSchedule();
 Schedule getGlobalSchedule();
 void setGlobalSchedule(const Schedule& globalSchedule);
 std::optional<std::pair<UserSchedule, ScheduleEntry>> checkGlobalSchedule();
 
-UserSchedule initUserSchedule(const dpp::snowflake& userSnowflake);
+UserSchedule initUserSchedule(const dpp::snowflake& userSnowflake,
+                              const std::string& timezone);
 UserSchedule getUserSchedule(const dpp::snowflake& userSnowflake);
 void setUserSchedule(const UserSchedule& userSchedule);
 

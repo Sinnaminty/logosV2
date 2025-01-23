@@ -40,10 +40,13 @@ std::string ScheduleEntry::toString() const {
 void from_json(const json& j, UserSchedule& user) {
   j.at("events").get_to(user.m_events);
   j.at("snowflake").get_to(user.m_snowflake);
+  j.at("timezone").get_to(user.m_timezone);
 }
 
 void to_json(json& j, const UserSchedule& user) {
-  j = json{{"events", user.m_events}, {"snowflake", user.m_snowflake}};
+  j = json{{"events", user.m_events},
+           {"snowflake", user.m_snowflake},
+           {"timezone", user.m_timezone}};
 }
 
 std::string UserSchedule::toString() const {
@@ -161,6 +164,9 @@ void scheduleRemove(const dpp::snowflake& snowflake,
   UserSchedule userSchedule = getUserSchedule(snowflake);
 }
 
+void scheduleSetTimezone(const dpp::snowflake& snowflake,
+                         const std::string& timezone) {}
+
 /////////////////////////////////////////////////////
 /// Back end functions
 
@@ -235,7 +241,8 @@ std::optional<std::pair<UserSchedule, ScheduleEntry>> checkGlobalSchedule() {
   return std::nullopt;
 }
 
-UserSchedule initUserSchedule(const dpp::snowflake& userSnowflake) {
+UserSchedule initUserSchedule(const dpp::snowflake& userSnowflake,
+                              const std::string& timezone) {
   Schedule globalSchedule = getGlobalSchedule();
 
   auto userScheduleIt = std::find_if(
@@ -250,7 +257,7 @@ UserSchedule initUserSchedule(const dpp::snowflake& userSnowflake) {
   }
   // we know for sure that there is no UserSchedule.
   UserSchedule newUserSchedule{userSnowflake.str(),
-                               std::vector<ScheduleEntry>()};
+                               std::vector<ScheduleEntry>(), timezone};
   globalSchedule.m_schedules.emplace_back(newUserSchedule);
 
   setGlobalSchedule(globalSchedule);
@@ -267,7 +274,8 @@ UserSchedule getUserSchedule(const dpp::snowflake& userSnowflake) {
       });
 
   if (userScheduleIt == globalSchedule.m_schedules.end()) {
-    return initUserSchedule(userSnowflake);
+    throw(std::runtime_error(
+        "ERROR - getUserSchedule: User must init schedule."));
   }
   return *userScheduleIt;
 }

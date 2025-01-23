@@ -449,121 +449,150 @@ int main(int argc, const char* argv[]) {
       auto subCommand = cmdData.options[0];
 
       const dpp::snowflake userSnowflake = event.command.get_issuing_user().id;
-
-      if (subCommand.name == "show") {
+      if (subCommand.name == "set_timezone") {
         try {
-          auto userSchedule = Schedule::getUserSchedule(userSnowflake);
-          event.reply(
-              dpp::message(event.command.channel_id,
-                           createEmbed(mType::GOOD, userSchedule.toString())));
+          for (auto& param : subCommand.options) {
+            if (param.name == "timezone" &&
+                std::holds_alternative<std::string>(param.value)) {
+              //
+              auto userSchedule = Schedule::initUserSchedule(
+                  userSnowflake, std::get<std::string>(param.value));
+
+              event.reply(dpp::message(
+                  event.command.channel_id,
+                  createEmbed(mType::GOOD,
+                              "Timezone set!\n" + userSchedule.toString())));
+            }
+          }
 
         } catch (const std::exception& e) {
           event.reply(dpp::message(event.command.channel_id,
                                    createEmbed(mType::BAD, e.what())));
+          // idk if i need this return but better safe than sorry..
+          return;
         }
+      }
+      try {
+        // this will throw an error now if this user doesn't have a schedule.
+        auto userSchedule = Schedule::getUserSchedule(userSnowflake);
 
-        return;
+        if (subCommand.name == "show") {
+          try {
+            event.reply(dpp::message(
+                event.command.channel_id,
+                createEmbed(mType::GOOD, userSchedule.toString())));
 
-      } else if (subCommand.name == "add") {
-        if (!subCommand.options.empty()) {
-          std::string eventName = "";
-          std::string eventDate = "";
-          std::string eventTime = "";
-          auto userSchedule = Schedule::getUserSchedule(userSnowflake);
+          } catch (const std::exception& e) {
+            event.reply(dpp::message(event.command.channel_id,
+                                     createEmbed(mType::BAD, e.what())));
+          }
 
-          for (auto& param : subCommand.options) {
-            if (param.name == "name" &&
-                std::holds_alternative<std::string>(param.value)) {
-              eventName = std::get<std::string>(param.value);
+          return;
 
-            } else if (param.name == "date" &&
-                       std::holds_alternative<std::string>(param.value)) {
-              eventDate = std::get<std::string>(param.value);
+        } else if (subCommand.name == "add") {
+          if (!subCommand.options.empty()) {
+            std::string eventName = "";
+            std::string eventDate = "";
+            std::string eventTime = "";
 
-            } else if (param.name == "time" &&
-                       std::holds_alternative<std::string>(param.value)) {
-              eventTime = std::get<std::string>(param.value);
+            for (auto& param : subCommand.options) {
+              if (param.name == "name" &&
+                  std::holds_alternative<std::string>(param.value)) {
+                eventName = std::get<std::string>(param.value);
+
+              } else if (param.name == "date" &&
+                         std::holds_alternative<std::string>(param.value)) {
+                eventDate = std::get<std::string>(param.value);
+
+              } else if (param.name == "time" &&
+                         std::holds_alternative<std::string>(param.value)) {
+                eventTime = std::get<std::string>(param.value);
+              }
+            }
+
+            try {
+              userSchedule.addEvent(eventName, eventDate, eventTime);
+
+              event.reply(dpp::message(
+                  event.command.channel_id,
+                  createEmbed(mType::GOOD,
+                              "Event Added!\n" + userSchedule.toString())));
+
+            } catch (const std::exception& e) {
+              event.reply(dpp::message(event.command.channel_id,
+                                       createEmbed(mType::BAD, e.what())));
             }
           }
 
-          try {
-            userSchedule.addEvent(eventName, eventDate, eventTime);
+        } else if (subCommand.name == "edit") {
+          if (!subCommand.options.empty()) {
+            int index = 0;
+            std::string newName = "";
+            std::string newDate = "";
+            std::string newTime = "";
+
+            for (auto& param : subCommand.options) {
+              if (param.name == "index" &&
+                  std::holds_alternative<int64_t>(param.value)) {
+                index = std::get<int64_t>(param.value);
+
+              } else if (param.name == "name" &&
+                         std::holds_alternative<std::string>(param.value)) {
+                newName = std::get<std::string>(param.value);
+
+              } else if (param.name == "date" &&
+                         std::holds_alternative<std::string>(param.value)) {
+                newDate = std::get<std::string>(param.value);
+
+              } else if (param.name == "time" &&
+                         std::holds_alternative<std::string>(param.value)) {
+                newTime = std::get<std::string>(param.value);
+              }
+            }
+
+            try {
+              userSchedule.editEvent(index, newName, newDate, newTime);
+
+            } catch (const std::exception& e) {
+              event.reply(dpp::message(event.command.channel_id,
+                                       createEmbed(mType::BAD, e.what())));
+            }
 
             event.reply(dpp::message(
                 event.command.channel_id,
                 createEmbed(mType::GOOD,
-                            "Event Added!\n" + userSchedule.toString())));
-
-          } catch (const std::exception& e) {
-            event.reply(dpp::message(event.command.channel_id,
-                                     createEmbed(mType::BAD, e.what())));
+                            "Event Edited!\n" + userSchedule.toString())));
           }
-        }
 
-      } else if (subCommand.name == "edit") {
-        // gonna do remove first
-        if (!subCommand.options.empty()) {
-          int index = 0;
-          std::string newName = "";
-          std::string newDate = "";
-          std::string newTime = "";
-          for (auto& param : subCommand.options) {
-            if (param.name == "index" &&
-                std::holds_alternative<int64_t>(param.value)) {
-              index = std::get<int64_t>(param.value);
+        } else if (subCommand.name == "remove") {
+          if (!subCommand.options.empty()) {
+            int index = 0;
 
-            } else if (param.name == "name" &&
-                       std::holds_alternative<std::string>(param.value)) {
-              newName = std::get<std::string>(param.value);
-
-            } else if (param.name == "date" &&
-                       std::holds_alternative<std::string>(param.value)) {
-              newDate = std::get<std::string>(param.value);
-
-            } else if (param.name == "time" &&
-                       std::holds_alternative<std::string>(param.value)) {
-              newTime = std::get<std::string>(param.value);
+            for (auto& param : subCommand.options) {
+              if (param.name == "index" &&
+                  std::holds_alternative<int64_t>(param.value)) {
+                index = std::get<int64_t>(param.value);
+              }
             }
-          }
 
-          auto userSchedule = Schedule::getUserSchedule(userSnowflake);
-          try {
-            userSchedule.editEvent(index, newName, newDate, newTime);
-
-          } catch (const std::exception& e) {
-            event.reply(dpp::message(event.command.channel_id,
-                                     createEmbed(mType::BAD, e.what())));
-          }
-
-          event.reply(dpp::message(
-              event.command.channel_id,
-              createEmbed(mType::GOOD,
-                          "Event Edited!\n" + userSchedule.toString())));
-        }
-
-      } else if (subCommand.name == "remove") {
-        if (!subCommand.options.empty()) {
-          int index = 0;
-          auto userSchedule = Schedule::getUserSchedule(userSnowflake);
-
-          for (auto& param : subCommand.options) {
-            if (param.name == "index" &&
-                std::holds_alternative<int64_t>(param.value)) {
-              index = std::get<int64_t>(param.value);
+            try {
+              userSchedule.removeEvent(index);
+            } catch (const std::exception& e) {
+              event.reply(dpp::message(event.command.channel_id,
+                                       createEmbed(mType::BAD, e.what())));
             }
+            event.reply(dpp::message(
+                event.command.channel_id,
+                createEmbed(mType::GOOD,
+                            "Event Deleted!\n" + userSchedule.toString())));
           }
-
-          try {
-            userSchedule.removeEvent(index);
-          } catch (const std::exception& e) {
-            event.reply(dpp::message(event.command.channel_id,
-                                     createEmbed(mType::BAD, e.what())));
-          }
-          event.reply(dpp::message(
-              event.command.channel_id,
-              createEmbed(mType::GOOD,
-                          "Event Deleted!\n" + userSchedule.toString())));
         }
+      } catch (const std::runtime_error& e) {
+        event.reply(
+            dpp::message(event.command.channel_id,
+                         createEmbed(mType::BAD,
+                                     "You need to set your timezone first! Use "
+                                     "'/schedule timezone' to configure it.")));
       }
     }
   });
@@ -709,6 +738,16 @@ int main(int argc, const char* argv[]) {
                                               true))
 
       );
+
+      schedule.add_option(
+          // For timezone.
+          dpp::command_option(dpp::co_sub_command, "set_timezone",
+                              "Set your timezone.")
+
+              .add_option(dpp::command_option(dpp::co_string, "timezone",
+                                              "Your timezone.", true)
+
+                              ));
 
       /////////////////////////////////////////////////////////////////////////////////////////////////
       /// other commands
