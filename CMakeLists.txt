@@ -32,7 +32,6 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/HowardHinnant/date.git
   GIT_TAG master
 )
-FetchContent_GetProperties(date_src)
 FetchContent_MakeAvailable(date_src)
 
 target_include_directories(${BOT_NAME} PUBLIC
@@ -51,4 +50,5 @@ target_link_libraries(${BOT_NAME} PRIVATE
     ${OPENSSL_CRYPTO_LIBRARY}
     ${OPENSSL_SSL_LIBRARY}
     date::date
+    date::date-tz
 )

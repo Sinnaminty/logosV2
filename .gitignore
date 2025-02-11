@@ -3,6 +3,7 @@ music/
 .cache/
 
 json/s.json
+json/schedule.json
 
 *.mp3
 *.wav
