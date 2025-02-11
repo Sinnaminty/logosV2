@@ -54,7 +54,7 @@ dpp::embed createEmbed(const mType& mType, const std::string& m) {
   }
 }
 
-std::vector<uint8_t> encodeSong(const std::string& file) {
+std::vector<uint8_t> encodeAudio(const std::string& file) {
   std::vector<uint8_t> pcmdata;
 
   mpg123_init();
@@ -89,43 +89,6 @@ std::vector<uint8_t> encodeSong(const std::string& file) {
   mpg123_delete(mh);
   mpg123_exit();
   return pcmdata;
-}
-
-void downloadSay(const std::string& text) {
-  if (std::filesystem::exists("say.wav")) {
-    std::filesystem::remove("say.wav");
-  }
-  if (std::filesystem::exists("say.mp3")) {
-    std::filesystem::remove("say.mp3");
-  }
-
-  std::string command = "say -pre \"[:phoneme on] \" -e 1 -fo say.wav -a \"";
-  command += text + "\"";
-
-  int retCode = std::system(command.c_str());
-  if (retCode != 0) {
-    throw std::runtime_error("Error: Failed to generate text.");
-  }
-
-  // say.wav now in project dir.
-
-  command.clear();
-  command =
-      "ffmpeg -f wav -i say.wav -ar 48000 -ac 2 "
-      "say.mp3";
-  retCode = std::system(command.c_str());
-  if (retCode != 0) {
-    throw std::runtime_error("Error: ffmpeg error.");
-  }
-}
-
-std::vector<uint8_t> encodeSay(const std::string& text) {
-  downloadSay(text);
-
-  // output.mp3 now in project dir.
-  auto ret = encodeSong("say.mp3");
-
-  return ret;
 }
 
 std::string downloadSong(const std::string& link) {

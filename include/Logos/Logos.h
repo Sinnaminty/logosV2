@@ -33,10 +33,7 @@ class Carbon {
 dpp::embed createEmbed(const mType& mType, const std::string& m);
 
 std::string downloadSong(const std::string& link);
-std::vector<uint8_t> encodeSong(const std::string& file);
-
-void downloadSay(const std::string& text);
-std::vector<uint8_t> encodeSay(const std::string& text);
+std::vector<uint8_t> encodeAudio(const std::string& file);
 
 void archiveChannel(const std::string& channelName,
                     const dpp::cache<dpp::message>& cache);
