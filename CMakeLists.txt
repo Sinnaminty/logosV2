@@ -13,7 +13,6 @@ string(ASCII 27 Esc)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_subdirectory(extern/date)
 
 set_target_properties(${BOT_NAME} PROPERTIES
     CXX_STANDARD 20
@@ -26,7 +25,16 @@ find_package(Threads REQUIRED)
 find_package(DPP REQUIRED)
 find_package(OpenSSL REQUIRED)
 
-target_compile_definitions(${BOT_NAME} PUBLIC HAS_REMOTE_API=1)
+include(FetchContent)
+
+FetchContent_Declare(
+  date_src
+  GIT_REPOSITORY https://github.com/HowardHinnant/date.git
+  GIT_TAG master
+)
+FetchContent_GetProperties(date_src)
+FetchContent_MakeAvailable(date_src)
+
 target_include_directories(${BOT_NAME} PUBLIC
 
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -34,7 +42,7 @@ target_include_directories(${BOT_NAME} PUBLIC
     ${OPENSSL_INCLUDE_DIR}
 )
 
-target_link_libraries(${BOT_NAME}
+target_link_libraries(${BOT_NAME} PRIVATE
     dl
     fmt
     mpg123
@@ -44,5 +52,3 @@ target_link_libraries(${BOT_NAME}
     ${OPENSSL_SSL_LIBRARY}
     date::date
 )
-
-
