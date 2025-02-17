@@ -293,9 +293,8 @@ int main(int argc, const char* argv[]) {
       const dpp::command_interaction cmdData =
           event.command.get_command_interaction();
 
-      event.thinking(false, [&](const dpp::confirmation_callback_t& callback) {
-
-      });
+      event.thinking(false,
+                     [&](const dpp::confirmation_callback_t& callback) {});
 
       // holds the name of the subcommand
       auto subCommand = cmdData.options[0];
