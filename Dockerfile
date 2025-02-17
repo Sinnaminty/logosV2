@@ -43,7 +43,7 @@ WORKDIR /app
 COPY . .
 
 # Build the bot.
-RUN cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+RUN cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBUILD_TZ_LIB=ON \
   && cmake --build build
 
 
