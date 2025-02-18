@@ -81,7 +81,6 @@ void UserSchedule::removeEvent(const std::string& name) {
   auto eventIt = std::find_if(
       m_events.begin(), m_events.end(),
       [&](const ScheduleEntry& entry) { return entry.m_eventName == name; });
-
   if (eventIt == m_events.end()) {
     throw(std::runtime_error(
         "ERROR - UserSchedule::removeEvent: Event does not exist."));
@@ -118,6 +117,11 @@ void UserSchedule::editEvent(const int& index,
     event.m_dateTime = parseDateTime(date, time, m_timezone);
   }
   this->sort();
+  setUserSchedule(*this);
+}
+
+void UserSchedule::setTimezone(const std::string& timezone) {
+  this->m_timezone = timezone;
   setUserSchedule(*this);
 }
 
@@ -249,9 +253,9 @@ UserSchedule getUserSchedule(const dpp::snowflake& userSnowflake) {
       });
 
   if (userScheduleIt == globalSchedule.m_schedules.end()) {
-    throw(std::runtime_error(
-        "ERROR - getUserSchedule: User must init schedule."));
+    return initUserSchedule(userSnowflake, "");
   }
+
   return *userScheduleIt;
 }
 

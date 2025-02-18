@@ -33,6 +33,8 @@ struct UserSchedule {
                  const std::string& name,
                  const std::string& date,
                  const std::string& time);
+
+  void setTimezone(const std::string& timezone);
   void sort();
 };
 
