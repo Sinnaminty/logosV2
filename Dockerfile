@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
   libogg-dev \
   libmpg123-dev \
   libfmt-dev \
+  libcurl4-openssl-dev \
   unzip \
   ffmpeg \
   curl \
