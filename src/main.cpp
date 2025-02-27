@@ -290,10 +290,10 @@ int main(int argc, const char* argv[]) {
         },
         SCHEDULE_FREQUENCY);
 
-    if (dpp::run_once<struct clear_bot_commands>()) {
-      // bot.global_bulk_command_delete();
-      bot.guild_bulk_command_delete(ydsGuild);
-    }
+    // if (dpp::run_once<struct clear_bot_commands>()) {
+    //   // bot.global_bulk_command_delete();
+    //   bot.guild_bulk_command_delete(ydsGuild);
+    // }
 
     if (dpp::run_once<struct register_bot_commands>()) {
       /////////////////////////////////////////////////////////////////////////////////////////////////
