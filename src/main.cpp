@@ -64,7 +64,7 @@ int main(int argc, const char* argv[]) {
             createEmbed(mType::GOOD, "🔈 Connecting to voice...")));
 
         /* Get the voice channel the bot is in, in this current guild. */
-        dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
+        dpp::voiceconn* v = event.from()->get_voice(event.command.guild_id);
         // BUG: If not connected to voice chat initially, you need to run the
         // command twice.
 
