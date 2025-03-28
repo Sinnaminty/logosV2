@@ -6,7 +6,8 @@
 using json = nlohmann::json;
 
 namespace Oot {
-std::unordered_map<std::string, std::string> OOTItemHints::m_itemToLocation;
+std::unordered_map<std::string, std::vector<std::string>>
+    OOTItemHints::m_itemToLocation;
 
 void OOTItemHints::init(const std::string& json_data) {
   std::cout << "Init Called!!\n";
@@ -15,12 +16,9 @@ void OOTItemHints::init(const std::string& json_data) {
   if (data.contains("locations")) {
     for (auto& [location, item] : data["locations"].items()) {
       if (item.is_string()) {
-        m_itemToLocation[item] = location;
-        std::cout << "item: " << item << "location: " << location << std::endl;
+        m_itemToLocation[item].push_back(location);
       } else if (item.is_object() && item.contains("item")) {
-        std::cout << "item:[item]" << item["item"] << "location: " << location
-                  << std::endl;
-        m_itemToLocation[item["item"]] = location;
+        m_itemToLocation[item["item"]].push_back(location);
       }
     }
   } else {
@@ -28,12 +26,13 @@ void OOTItemHints::init(const std::string& json_data) {
   }
 }
 
-std::string OOTItemHints::getItemLocation(const std::string& itemName) {
+std::vector<std::string> OOTItemHints::getItemLocations(
+    const std::string& itemName) {
   auto it = m_itemToLocation.find(itemName);
   if (it != m_itemToLocation.end()) {
     return it->second;
   }
-  return "Item not found in the hint data.";
+  return {"Item not found in the hint data."};
 }
 
 bool OOTItemHints::isReady() {

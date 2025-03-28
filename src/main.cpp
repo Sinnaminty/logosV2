@@ -311,15 +311,22 @@ int main(int argc, const char* argv[]) {
             createEmbed(mType::GOOD, "Item hints has been loaded!")));
 
       } else if (subCommand.name == "hint") {
-        std::string itemName;
-        for (auto& param : subCommand.options) {
-          if (param.name == "item") {
-            itemName = std::get<std::string>(param.value);
-          }
+        std::string itemName =
+            std::get<std::string>(subCommand.options[0].value);
+
+        if (itemName.empty()) {
+          bot.log(dpp::ll_error, "itemName empty");
         }
-        std::string location = Oot::OOTItemHints::getItemLocation(itemName);
+        std::vector<std::string> locations =
+            Oot::OOTItemHints::getItemLocations(itemName);
+
+        std::string message = "**" + itemName + "** is at..\n";
+        for (std::string location : locations) {
+          message += location + "\n";
+        }
+
         event.reply(dpp::message(event.command.channel_id,
-                                 createEmbed(mType::GOOD, location)));
+                                 createEmbed(mType::GOOD, message)));
       }
     }
   });
@@ -509,7 +516,8 @@ int main(int argc, const char* argv[]) {
 
               .add_option(dpp::command_option(dpp::co_string, "item",
                                               "What item do you want to hint?",
-                                              true)));
+                                              true)
+                              .set_auto_complete(true)));
 
       oot.add_option(
           // For add.
@@ -524,6 +532,53 @@ int main(int argc, const char* argv[]) {
       // bot.global_bulk_command_create(commands);
       bot.guild_bulk_command_create(commands, ydsGuild);
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
+    }
+  });
+
+  bot.on_autocomplete([&](const dpp::autocomplete_t& event) {
+    //    bot.log(dpp::ll_info, "fuehh!");
+
+    for (auto& opt : event.options) {
+      //     bot.log(dpp::ll_info, opt.name);
+      if (opt.name == "hint") {
+        // bot.log(dpp::ll_info, opt.options[0].name);
+        std::string uservalue = std::get<std::string>(opt.options[0].value);
+        // bot.log(dpp::ll_info, "opt.value" + uservalue);
+        dpp::interaction_response response(dpp::ir_autocomplete_reply);
+
+        // Get all item names from OOTItemHints
+        std::vector<std::string> all_items;
+        for (const auto& pair : Oot::OOTItemHints::m_itemToLocation) {
+          all_items.push_back(pair.first);
+        }
+        //        bot.log(dpp::ll_info,
+        //               "all_items size: " + std::to_string(all_items.size()));
+
+        // Filter items that start with the user input (case-insensitive)
+        std::vector<std::string> matched_items;
+        for (const auto& item : all_items) {
+          if (item.find(uservalue) != std::string::npos) {  // Partial match
+            matched_items.push_back(item);
+            // bot.log(dpp::ll_info, "match found~! " + item);
+          }
+        }
+
+        // Add filtered results to autocomplete choices (max 25, per Discord
+        // API)
+        size_t count = 0;
+        for (const auto& match : matched_items) {
+          if (count++ >= 25)
+            break;
+          // bot.log(dpp::ll_info, "adding to response..");
+          response.add_autocomplete_choice(
+              dpp::command_option_choice(match, match));
+        }
+
+        // Send the autocomplete response
+        bot.interaction_response_create(event.command.id, event.command.token,
+                                        response);
+        break;
+      }
     }
   });
 
