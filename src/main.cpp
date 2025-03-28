@@ -1,9 +1,17 @@
 #include <Logos/Logos.h>
+#include <Logos/Oot.h>
 #include <Logos/Schedule.h>
 #include <Logos/Vox.h>
+#include <dpp/appcommand.h>
 #include <dpp/dpp.h>
+#include <dpp/httpsclient.h>
+#include <dpp/message.h>
+#include <dpp/misc-enum.h>
+#include <dpp/queues.h>
+#include <dpp/snowflake.h>
 #include <exception>
 #include <stdexcept>
+#include <string>
 #include <variant>
 
 using json = nlohmann::json;
@@ -29,6 +37,9 @@ int main(int argc, const char* argv[]) {
   bot.on_log(dpp::utility::cout_logger());
 
   bot.on_slashcommand([&](const dpp::slashcommand_t& event) {
+    /*
+     * Vox
+     */
     if (event.command.get_command_name() == "vox") {
       const dpp::command_interaction cmdData =
           event.command.get_command_interaction();
@@ -64,7 +75,7 @@ int main(int argc, const char* argv[]) {
             createEmbed(mType::GOOD, "🔈 Connecting to voice...")));
 
         /* Get the voice channel the bot is in, in this current guild. */
-        dpp::voiceconn* v = event.from()->get_voice(event.command.guild_id);
+        dpp::voiceconn* v = event.from->get_voice(event.command.guild_id);
         // BUG: If not connected to voice chat initially, you need to run the
         // command twice.
 
@@ -124,7 +135,9 @@ int main(int argc, const char* argv[]) {
       }
 
       ////////////////////////////////////////////////////////////////////////////////////////////
-
+      /*
+       * Schedule
+       */
     } else if (event.command.get_command_name() == "schedule") {
       const dpp::command_interaction cmdData =
           event.command.get_command_interaction();
@@ -257,6 +270,56 @@ int main(int argc, const char* argv[]) {
       } catch (const std::exception& e) {
         event.reply(dpp::message(event.command.channel_id,
                                  createEmbed(mType::BAD, e.what())));
+      }
+    } else if (event.command.get_command_name() == "oot") {
+      const dpp::command_interaction cmdData =
+          event.command.get_command_interaction();
+      auto subCommand = cmdData.options[0];
+
+      if (subCommand.name == "add") {
+        dpp::snowflake fileId;
+        for (auto& param : subCommand.options) {
+          if (param.name == "json") {
+            fileId = std::get<dpp::snowflake>(param.value);
+          }
+        }
+
+        auto it = event.command.resolved.attachments.find(fileId);
+        if (it == event.command.resolved.attachments.end()) {
+          event.reply(dpp::message(
+              event.command.channel_id,
+              createEmbed(mType::BAD, "No valid JSON attachment found, hoe.")));
+          return;
+        }
+
+        dpp::attachment att = it->second;
+        std::string fileUrl = att.url;
+
+        bot.request(fileUrl, dpp::m_get,
+                    [&](const dpp::http_request_completion_t& response) {
+                      if (response.status == 200) {
+                        bot.log(dpp::ll_info, "Downloaded JSON: ");
+                        Oot::OOTItemHints::init(response.body);
+
+                      } else {
+                        bot.log(dpp::ll_error, "Request fail. Suffer.");
+                      }
+                    });
+
+        event.reply(dpp::message(
+            event.command.channel_id,
+            createEmbed(mType::GOOD, "Item hints has been loaded!")));
+
+      } else if (subCommand.name == "hint") {
+        std::string itemName;
+        for (auto& param : subCommand.options) {
+          if (param.name == "item") {
+            itemName = std::get<std::string>(param.value);
+          }
+        }
+        std::string location = Oot::OOTItemHints::getItemLocation(itemName);
+        event.reply(dpp::message(event.command.channel_id,
+                                 createEmbed(mType::GOOD, location)));
       }
     }
   });
@@ -421,24 +484,42 @@ int main(int argc, const char* argv[]) {
           dpp::command_option(dpp::co_sub_command, "speak",
                               "Speak in VC (Moonbase Alpha dectalk).")
 
-              .add_option(dpp::command_option(dpp::co_string, "text",
-                                              "What you want me to say.", true)
-
-                              ));
+              .add_option(dpp::command_option(
+                  dpp::co_string, "text", "What you want me to say.", true)));
 
       vox.add_option(
           // For download.
           dpp::command_option(
               dpp::co_sub_command, "download",
               "Sends a voice clip of my speech of your choosing.")
-              .add_option(dpp::command_option(dpp::co_string, "text",
-                                              "What you want me to say.", true))
-
-      );
+              .add_option(dpp::command_option(
+                  dpp::co_string, "text", "What you want me to say.", true)));
 
       /////////////////////////////////////////////////////////////////////////////////////////////////
+      /// oot commands
+      /////////////////////////////////////////////////////////////////////////////////////////////////
 
-      const std::vector<dpp::slashcommand> commands = {vox, schedule};
+      dpp::slashcommand oot("oot", "For Ocarina of Time Based Commands.",
+                            bot.me.id);
+
+      oot.add_option(
+          // For hint.
+          dpp::command_option(dpp::co_sub_command, "hint",
+                              "Ask for a hint for this rando run.")
+
+              .add_option(dpp::command_option(dpp::co_string, "item",
+                                              "What item do you want to hint?",
+                                              true)));
+
+      oot.add_option(
+          // For add.
+          dpp::command_option(dpp::co_sub_command, "add",
+                              "Add a rando json to track.")
+
+              .add_option(dpp::command_option(dpp::co_attachment, "json",
+                                              "Select your json.", true)));
+
+      const std::vector<dpp::slashcommand> commands = {vox, schedule, oot};
 
       // bot.global_bulk_command_create(commands);
       bot.guild_bulk_command_create(commands, ydsGuild);
