@@ -277,6 +277,10 @@ int main(int argc, const char* argv[]) {
         event.reply(dpp::message(event.command.channel_id,
                                  createEmbed(mType::BAD, e.what())));
       }
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+      /// oot commands
+      /////////////////////////////////////////////////////////////////////////////////////////////////
     } else if (event.command.get_command_name() == "oot") {
       const dpp::command_interaction cmdData =
           event.command.get_command_interaction();
@@ -330,6 +334,20 @@ int main(int argc, const char* argv[]) {
         for (std::string location : locations) {
           message += location + "\n";
         }
+
+        event.reply(dpp::message(event.command.channel_id,
+                                 createEmbed(mType::GOOD, message)));
+      } else if (subCommand.name == "hintloc") {
+        std::string locationName =
+            std::get<std::string>(subCommand.options[0].value);
+
+        if (locationName.empty()) {
+          bot.log(dpp::ll_error, "locationName empty");
+        }
+        std::string item = Oot::OOTItemHints::getItemFromLocation(locationName);
+
+        std::string message =
+            "**" + locationName + "** contains.. " + item + "\n";
 
         event.reply(dpp::message(event.command.channel_id,
                                  createEmbed(mType::GOOD, message)));
@@ -526,6 +544,16 @@ int main(int argc, const char* argv[]) {
                               .set_auto_complete(true)));
 
       oot.add_option(
+          // For hintloc.
+          dpp::command_option(dpp::co_sub_command, "hintloc",
+                              "Tells you what item is at this location.")
+
+              .add_option(dpp::command_option(
+                              dpp::co_string, "location",
+                              "What location do you want to check?", true)
+                              .set_auto_complete(true)));
+
+      oot.add_option(
           // For add.
           dpp::command_option(dpp::co_sub_command, "add",
                               "Add a rando json to track.")
@@ -589,6 +617,45 @@ int main(int argc, const char* argv[]) {
           if (count++ >= 25)
             break;
           // bot.log(dpp::ll_info, "adding to response..");
+          response.add_autocomplete_choice(
+              dpp::command_option_choice(match, match));
+        }
+
+        // Send the autocomplete response
+        bot.interaction_response_create(event.command.id, event.command.token,
+                                        response);
+        break;
+
+      } else if (opt.name == "hintloc") {
+        std::string uservalue = std::get<std::string>(opt.options[0].value);
+        dpp::interaction_response response(dpp::ir_autocomplete_reply);
+
+        std::vector<std::string> all_locations;
+        for (const auto& pair : Oot::OOTItemHints::m_itemToLocation) {
+          for (const auto& location : pair.second) {
+            all_locations.push_back(location);
+          }
+        }
+
+        std::vector<std::string> matched_locations;
+        for (const auto& location : all_locations) {
+          auto it = std::search(
+              location.begin(), location.end(), uservalue.begin(),
+              uservalue.end(),
+              [&](const unsigned char ch1, const unsigned char ch2) {
+                return std::tolower(ch1) == std::tolower(ch2);
+              });
+          if (it != location.end()) {  // Partial match
+            matched_locations.push_back(location);
+          }
+        }
+
+        // Add filtered results to autocomplete choices (max 25, per Discord
+        // API)
+        size_t count = 0;
+        for (const auto& match : matched_locations) {
+          if (count++ >= 25)
+            break;
           response.add_autocomplete_choice(
               dpp::command_option_choice(match, match));
         }
