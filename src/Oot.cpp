@@ -1,4 +1,5 @@
 #include <Logos/Oot.h>
+#include <algorithm>
 #include <dpp/nlohmann/json.hpp>
 #include <iostream>
 #include <unordered_map>
@@ -36,8 +37,16 @@ std::vector<std::string> OOTItemHints::getItemLocations(
   return {"Item not found in the hint data."};
 }
 
-bool OOTItemHints::isReady() {
-  return (!m_itemToLocation.empty());
+std::string OOTItemHints::getItemFromLocation(const std::string& locationName) {
+  std::vector<std::string> keys;
+  for (const auto& pair : m_itemToLocation) {
+    for (const auto& location : pair.second) {
+      if (location == locationName) {
+        return pair.first;
+      }
+    }
+  }
+  return "Location not found.";
 }
 
 }  // namespace Oot
