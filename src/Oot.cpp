@@ -10,7 +10,8 @@ std::unordered_map<std::string, std::vector<std::string>>
     OOTItemHints::m_itemToLocation;
 
 void OOTItemHints::init(const std::string& json_data) {
-  std::cout << "Init Called!!\n";
+  m_itemToLocation.clear();
+
   json data = json::parse(json_data);
 
   if (data.contains("locations")) {

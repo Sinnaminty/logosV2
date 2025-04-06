@@ -9,6 +9,8 @@
 #include <dpp/misc-enum.h>
 #include <dpp/queues.h>
 #include <dpp/snowflake.h>
+#include <algorithm>
+#include <cctype>
 #include <exception>
 #include <stdexcept>
 #include <string>
@@ -29,14 +31,14 @@ int main(int argc, const char* argv[]) {
   configFile >> configDocument;
   s >> sDocument;
 
-  // dpp::snowflake ydsGuild(configDocument["yds-guild-id"]);
-  // dpp::cluster bot(sDocument["test-bot-token"], dpp::i_default_intents |
-  //                                                 dpp::i_guild_members |
-  //                                                dpp::i_message_content);
+  dpp::snowflake ydsGuild(configDocument["yds-guild-id"]);
+  dpp::cluster bot(sDocument["test-bot-token"], dpp::i_default_intents |
+                                                    dpp::i_guild_members |
+                                                    dpp::i_message_content);
 
-  dpp::cluster bot(sDocument["bot-token"], dpp::i_default_intents |
-                                               dpp::i_guild_members |
-                                               dpp::i_message_content);
+  // dpp::cluster bot(sDocument["bot-token"], dpp::i_default_intents |
+  //                                             dpp::i_guild_members |
+  //                                            dpp::i_message_content);
 
   bot.on_log(dpp::utility::cout_logger());
 
@@ -533,8 +535,8 @@ int main(int argc, const char* argv[]) {
 
       const std::vector<dpp::slashcommand> commands = {vox, schedule, oot};
 
-      bot.global_bulk_command_create(commands);
-      //      bot.guild_bulk_command_create(commands, ydsGuild);
+      // bot.global_bulk_command_create(commands);
+      bot.guild_bulk_command_create(commands, ydsGuild);
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
     }
   });
@@ -561,7 +563,12 @@ int main(int argc, const char* argv[]) {
         // Filter items that start with the user input (case-insensitive)
         std::vector<std::string> matched_items;
         for (const auto& item : all_items) {
-          if (item.find(uservalue) != std::string::npos) {  // Partial match
+          auto it = std::search(
+              item.begin(), item.end(), uservalue.begin(), uservalue.end(),
+              [&](const unsigned char ch1, const unsigned char ch2) {
+                return std::tolower(ch1) == std::tolower(ch2);
+              });
+          if (it != item.end()) {  // Partial match
             matched_items.push_back(item);
             // bot.log(dpp::ll_info, "match found~! " + item);
           }
