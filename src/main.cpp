@@ -31,14 +31,14 @@ int main(int argc, const char* argv[]) {
   configFile >> configDocument;
   s >> sDocument;
 
-  dpp::snowflake ydsGuild(configDocument["yds-guild-id"]);
-  dpp::cluster bot(sDocument["test-bot-token"], dpp::i_default_intents |
-                                                    dpp::i_guild_members |
-                                                    dpp::i_message_content);
+  //  dpp::snowflake ydsGuild(configDocument["yds-guild-id"]);
+  // dpp::cluster bot(sDocument["test-bot-token"], dpp::i_default_intents |
+  //                                                  dpp::i_guild_members |
+  //                                                 dpp::i_message_content);
 
-  // dpp::cluster bot(sDocument["bot-token"], dpp::i_default_intents |
-  //                                             dpp::i_guild_members |
-  //                                            dpp::i_message_content);
+  dpp::cluster bot(sDocument["bot-token"], dpp::i_default_intents |
+                                               dpp::i_guild_members |
+                                               dpp::i_message_content);
 
   bot.on_log(dpp::utility::cout_logger());
 
@@ -535,8 +535,16 @@ int main(int argc, const char* argv[]) {
 
       const std::vector<dpp::slashcommand> commands = {vox, schedule, oot};
 
-      // bot.global_bulk_command_create(commands);
-      bot.guild_bulk_command_create(commands, ydsGuild);
+      /*
+       *FOR MAIN
+       */
+      bot.global_bulk_command_create(commands);
+
+      /*
+       *FOR TESTING
+       */
+      // bot.guild_bulk_command_create(commands, ydsGuild);
+
       bot.log(dpp::loglevel::ll_info, "Bot Ready!!!");
     }
   });
